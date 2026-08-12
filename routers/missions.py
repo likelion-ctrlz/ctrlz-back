@@ -19,7 +19,7 @@ def get_recommended_missions(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # TODO: AI 연동 필요 — 확정 전까지는 user_type 기준으로 DB에서 조회
+    # TODO: AI 연동 필요 — ai.ai_service.get_mission 구현되면 연결, 그 전까지는 user_type 기준으로 DB에서 조회
     missions = (
         db.query(Mission)
         .filter(Mission.user_type == current_user.user_type)

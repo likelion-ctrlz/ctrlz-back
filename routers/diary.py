@@ -41,12 +41,12 @@ def get_diary_summary(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # TODO: AI 연동 필요 — 확정 전까지는 최근 엔트리 개수만 반환하는 Mock 값
+    # TODO: AI 연동 필요 — ai.ai_service.summarize_diary 구현되면 연결
     entry_count = (
         db.query(DiaryEntry).filter(DiaryEntry.user_id == current_user.id).count()
     )
 
     return {
         "status": "success",
-        "data": {"entry_count": entry_count, "summary": "AI 연동 전 Mock 요약입니다."},
+        "data": {"entry_count": entry_count, "summary": "AI 연동 예정"},
     }
