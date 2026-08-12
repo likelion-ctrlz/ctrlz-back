@@ -21,16 +21,19 @@ cp .env.example .env  # 값 채워넣기
 uvicorn main:app --reload
 ```
 
+Windows에서는 venv 생성·설치 후 `start.bat`을 실행하면 venv 활성화 + 서버 실행이 한 번에 됩니다.
+
 서버 실행 후 http://localhost:8000/docs 에서 API 문서를 확인할 수 있습니다.
 
 ## 디렉토리 구조
 
 ```
-back/
+.
 ├── main.py           # FastAPI 앱 진입점
 ├── database.py        # DB 연결 (Supabase PostgreSQL)
 ├── security.py        # JWT 발급/검증
 ├── dependencies.py    # 인증 의존성 (get_current_user)
+├── start.bat           # Windows용 venv 활성화 + 서버 실행 스크립트
 ├── routers/           # API 엔드포인트
 │   ├── auth.py         # POST /auth/kakao, POST /auth/google
 │   ├── missions.py      # GET /missions/recommended, POST /missions/{id}/submit
