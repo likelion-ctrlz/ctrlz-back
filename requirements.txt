@@ -6,3 +6,4 @@ python-jose[cryptography]
 httpx
 python-dotenv
 pydantic
+openai
