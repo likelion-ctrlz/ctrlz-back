@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from database import Base, engine
-from routers import auth, diary, missions, tokens
+from routers import assessment, diary, hobbies, missions, programs, reports, session, tokens, users
 
 Base.metadata.create_all(bind=engine)
 
@@ -35,10 +35,15 @@ async def validation_exception_handler(request, exc: RequestValidationError):
     )
 
 
-app.include_router(auth.router)
+app.include_router(session.router)
+app.include_router(users.router)
+app.include_router(assessment.router)
 app.include_router(missions.router)
-app.include_router(diary.router)
 app.include_router(tokens.router)
+app.include_router(hobbies.router)
+app.include_router(diary.router)
+app.include_router(programs.router)
+app.include_router(reports.router)
 
 
 @app.get("/")

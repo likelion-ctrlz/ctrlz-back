@@ -26,11 +26,11 @@ DB                  → Supabase (PostgreSQL)
 프론트               → Vercel
 ```
 
-## 소셜 로그인
+## 인증 방식
 
-- 카카오, 구글 두 가지만 구현
-- 애플: 개발자 계정 필요로 제외
-- 네이버: 앱 승인 시간 문제로 제외
+- 소셜 로그인 없음. 닉네임 입력 한 번으로 `POST /session` 호출 → 유저 생성 + 세션 토큰 발급
+- 이후 모든 요청에 `Authorization: Bearer {session_token}` 헤더 필요
+- 세션 토큰은 JWT가 아니라 `sessions` 테이블에 저장되는 랜덤 문자열 (DB 조회 방식)
 
 ## 디렉토리 구조
 
@@ -38,15 +38,22 @@ DB                  → Supabase (PostgreSQL)
 backend/
 ├── main.py           # FastAPI 앱 진입점
 ├── database.py       # DB 연결 (Supabase PostgreSQL)
+├── security.py       # 세션 토큰 생성
+├── dependencies.py   # 세션 인증 의존성 (get_current_user)
 ├── routers/          # API 엔드포인트
-│   ├── auth.py       # POST /auth/kakao, POST /auth/google
-│   ├── missions.py   # GET /missions/recommended, POST /missions/{id}/submit
-│   ├── diary.py      # POST /diary/entries, GET /diary/summary
-│   └── tokens.py     # GET /tokens/balance
+│   ├── session.py     # POST /session (닉네임 온보딩)
+│   ├── users.py        # GET/PATCH /users/me
+│   ├── assessment.py   # POST /assessment/submit, GET /assessment/result
+│   ├── missions.py     # GET /missions/recommended, POST /missions/{id}/submit, GET /missions/{id}/result, GET /missions/history
+│   ├── tokens.py        # GET /tokens/balance, GET /tokens/history
+│   ├── hobbies.py       # GET /hobbies/recommended, POST /hobbies/{id}/apply
+│   ├── diary.py          # POST /diary/entries, GET /diary/entries, GET /diary/summary
+│   ├── programs.py       # GET /programs, POST /programs/{id}/apply
+│   └── reports.py        # GET /reports/daily
 ├── models/           # SQLAlchemy DB 모델
-│   ├── user.py
-│   ├── mission.py
-│   └── diary.py
+│   ├── user.py, session.py, mission.py, token.py, hobby.py, diary.py, program.py, report.py
+├── services/
+│   └── s3.py         # S3 업로드 (미션 인증 사진, 음성 일기)
 ├── ai/               # AI 파트 구현 영역 (직접 import 방식)
 │   ├── __init__.py
 │   └── ai_service.py # get_mission, summarize_diary — 백엔드 ↔ AI 인터페이스
@@ -57,21 +64,8 @@ backend/
 ## 환경변수 (.env)
 
 ```
-# 카카오 로그인
-KAKAO_CLIENT_ID=
-KAKAO_REDIRECT_URI=
-
-# 구글 로그인
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-
 # DB (Supabase)
 DATABASE_URL=
-
-# JWT
-JWT_SECRET_KEY=
-JWT_ALGORITHM=HS256
-JWT_EXPIRE_MINUTES=10080
 
 # AWS S3
 AWS_ACCESS_KEY_ID=
@@ -106,21 +100,13 @@ summary = summarize_diary(entries=["오늘의 기록", ...])
 
 > 새 AI 기능이 필요하면 `ai/ai_service.py`에 함수 시그니처부터 추가하고 AI 파트에 공유할 것. 라우터에서는 이 함수를 그대로 import해서 호출
 
-## 카카오 로그인 플로우
+## 세션 인증 플로우
 
-1. 프론트가 카카오 SDK로 액세스 토큰 받음
-2. `POST /auth/kakao` 로 토큰 전달
-3. 백엔드가 카카오 API로 유저 정보 조회
-4. users 테이블 upsert (첫 로그인 = 자동 가입)
-5. JWT 발급해서 반환
-
-## 구글 로그인 플로우
-
-1. 프론트가 구글 SDK로 ID 토큰 받음
-2. `POST /auth/google` 로 토큰 전달
-3. 백엔드가 구글 API로 유저 정보 조회
-4. users 테이블 upsert (첫 로그인 = 자동 가입)
-5. JWT 발급해서 반환
+1. 프론트가 닉네임만 받아서 `POST /session` 호출
+2. 백엔드가 `users` 레코드 생성 + `token_wallets` 생성 + `sessions` 레코드 생성(랜덤 토큰, 만료 30일)
+3. 응답으로 `session_token` 반환 → 프론트가 보관
+4. 이후 모든 요청에 `Authorization: Bearer {session_token}` 헤더 포함
+5. 백엔드는 `sessions` 테이블에서 토큰 조회로 유저 식별 (`dependencies.get_current_user`)
 
 ## 배포 시 주의사항
 

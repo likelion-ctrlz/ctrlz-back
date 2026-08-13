@@ -1,22 +1,12 @@
-import os
+import secrets
 from datetime import datetime, timedelta, timezone
 
-from jose import JWTError, jwt
-
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "10080"))
+SESSION_TTL_DAYS = 30
 
 
-def create_access_token(user_id: int) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRE_MINUTES)
-    payload = {"sub": str(user_id), "exp": expire}
-    return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+def generate_session_token() -> str:
+    return secrets.token_urlsafe(32)
 
 
-def decode_access_token(token: str) -> int:
-    try:
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-        return int(payload["sub"])
-    except (JWTError, KeyError, ValueError):
-        return None
+def session_expiry() -> datetime:
+    return datetime.now(timezone.utc) + timedelta(days=SESSION_TTL_DAYS)
