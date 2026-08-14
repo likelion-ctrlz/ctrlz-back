@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
@@ -15,6 +16,15 @@ from services.s3 import upload_file
 router = APIRouter(prefix="/missions", tags=["missions"])
 
 
+def _pick_for_user(candidates: list[Mission], user_id, level: int) -> Mission | None:
+    """유저마다 다른 미션이 보이되, 같은 유저는 항상 같은 결과가 나오도록 결정론적으로 선택."""
+    if not candidates:
+        return None
+    seed = f"{user_id}:{level}"
+    idx = int(hashlib.md5(seed.encode()).hexdigest(), 16) % len(candidates)
+    return candidates[idx]
+
+
 @router.get(
     "/recommended",
     summary="추천 미션 목록 조회",
@@ -22,6 +32,8 @@ router = APIRouter(prefix="/missions", tags=["missions"])
         "레벨 1(쉬움)~4(어려움) 각 레벨에서 미션을 1개씩 뽑아 난이도 사다리 형태로 총 4개를 반환합니다. "
         "유저의 자가진단 `status_level`로 필터링해서 특정 레벨만 보여주지 않고, "
         "항상 레벨 1~4를 고르게 보여줍니다 (자가진단 미완료 유저도 동일하게 조회 가능).\n\n"
+        "레벨별로 후보가 여러 개면 `user_id` 해시로 결정론적으로 하나를 골라 유저마다 다른 미션이 "
+        "보이게 하되, 같은 유저는 새로고침해도 항상 같은 결과를 봅니다.\n\n"
         "AI 기반 추천이 아니라 DB 필터링을 사용합니다 (재현성·난이도 곡선 안정성을 위해 의도된 설계)."
     ),
 )
@@ -31,12 +43,13 @@ def get_recommended_missions(
 ):
     data = []
     for level in (1, 2, 3, 4):
-        mission = (
+        candidates = (
             db.query(Mission)
             .filter(Mission.is_active.is_(True), Mission.target_level.any(level))
-            .order_by(Mission.created_at)
-            .first()
+            .order_by(Mission.mission_id)
+            .all()
         )
+        mission = _pick_for_user(candidates, current_user.user_id, level)
         if mission is None:
             continue
 
