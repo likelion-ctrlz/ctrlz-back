@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends
+from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session as DBSession
 
 from database import get_db
+from dependencies import bearer_scheme
 from models.session import Session
 from models.token import TokenWallet
 from models.user import User
@@ -39,3 +41,14 @@ def create_session(payload: SessionCreateRequest, db: DBSession = Depends(get_db
             "nickname": user.nickname,
         },
     }
+
+
+@router.delete("")
+def logout(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    db: DBSession = Depends(get_db),
+):
+    db.query(Session).filter(Session.token == credentials.credentials).delete()
+    db.commit()
+
+    return {"status": "success", "data": {"message": "로그아웃되었습니다"}}

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from sqlalchemy import func
 from sqlalchemy.orm import Session as DBSession
 
+from ai.ai_service import verify_photo
 from database import get_db
 from dependencies import get_current_user
 from models.mission import Mission, MissionCompletion
@@ -20,7 +21,7 @@ def get_recommended_missions(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
-    # TODO: AI 연동 필요 — ai.ai_service.get_mission 구현되면 연결, 그 전까지는 DB 필터링으로 대체
+    # 미션 추천은 DB 필터링 사용 (AI 미션 풀 미사용 확정)
     query = db.query(Mission).filter(Mission.is_active.is_(True))
     if current_user.status_level is not None:
         query = query.filter(Mission.target_level.any(current_user.status_level))
@@ -74,9 +75,9 @@ async def submit_mission(
         content_type=photo.content_type or "image/jpeg",
     )
 
-    # TODO: AI 연동 필요 — ai.ai_service.verify_photo 구현되면 연결, 그 전까지는 항상 승인 처리
-    ai_verdict = True
-    ai_feedback = "잘 하셨어요!"
+    verdict = verify_photo(photo_bytes, mission.title)
+    ai_verdict = verdict["passed"]
+    ai_feedback = verdict["comment"]
 
     completion.photo_url = photo_url
     completion.photo_gps_lat = gps_lat

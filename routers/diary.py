@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session as DBSession
 
+from ai.ai_service import summarize_diary, transcribe_diary
 from database import get_db
 from dependencies import get_current_user
 from models.diary import DiaryEntry
@@ -34,11 +35,16 @@ async def create_diary_entry(
             key=f"diary/{current_user.user_id}/{entry.entry_id}.webm",
             content_type=audio.content_type or "audio/webm",
         )
+        result = transcribe_diary(audio_bytes, filename=audio.filename or "diary.m4a")
+        entry.transcript = result["text"]
+        entry.emotion_summary = {"primary": result["emotion"], "score": {}}
+        entry.risk_flag = result["risk_level"] >= 2
+    else:
+        # 텍스트 직접 입력은 STT 대상이 아니라 AI 감정분석 없이 그대로 저장
+        entry.transcript = text_content
+        entry.emotion_summary = {"primary": "평온", "score": {}}
+        entry.risk_flag = False
 
-    # TODO: AI 연동 필요 — ai.ai_service.summarize_diary 구현되면 STT/감정분석 연결, 그 전까지는 Mock 처리
-    entry.transcript = text_content or "음성 인식 결과 (Mock)"
-    entry.emotion_summary = {"primary": "평온", "score": {}}
-    entry.risk_flag = False
     db.commit()
 
     return {
@@ -86,7 +92,6 @@ def get_diary_summary(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
-    # TODO: AI 연동 필요 — ai.ai_service.summarize_diary 구현되면 연결, 그 전까지는 Mock 처리
     entries = (
         db.query(DiaryEntry)
         .filter(DiaryEntry.user_id == current_user.user_id)
@@ -95,19 +100,22 @@ def get_diary_summary(
         .all()
     )
 
-    emotion_trend = [
+    ai_input = [
         {
-            "date": e.created_at.date().isoformat() if e.created_at else None,
-            "primary": (e.emotion_summary or {}).get("primary"),
+            "content": e.transcript or "",
+            "emotion": (e.emotion_summary or {}).get("primary", "행복"),
+            "created_at": e.created_at.isoformat() if e.created_at else "",
         }
         for e in reversed(entries)
     ]
+    result = summarize_diary(ai_input)
+    emotion_trend = [{"date": t["date"], "primary": t["emotion"]} for t in result["trend"]]
 
     return {
         "status": "success",
         "data": {
             "period": f"최근 {days}일",
             "emotion_trend": emotion_trend,
-            "ai_summary": "AI 연동 예정",
+            "ai_summary": result["summary"],
         },
     }
