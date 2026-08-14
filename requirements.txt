@@ -6,3 +6,4 @@ boto3
 python-multipart
 python-dotenv
 pydantic
+openai

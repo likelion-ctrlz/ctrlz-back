@@ -9,7 +9,11 @@ from models.user import User
 router = APIRouter(prefix="/tokens", tags=["tokens"])
 
 
-@router.get("/balance")
+@router.get(
+    "/balance",
+    summary="토큰 잔액 조회",
+    description="현재 보유 토큰 잔액을 반환합니다. 지갑이 아직 없는 유저는 0으로 반환합니다 (정상적으로는 온보딩 시 자동 생성됨).",
+)
 def get_token_balance(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
@@ -18,7 +22,11 @@ def get_token_balance(
     return {"status": "success", "data": {"token_balance": wallet.token_balance if wallet else 0}}
 
 
-@router.get("/history")
+@router.get(
+    "/history",
+    summary="토큰 적립·사용 내역 조회",
+    description="토큰이 적립되거나(`amount` 양수, 미션 완료 등) 사용된(`amount` 음수, 취미 신청 등) 모든 거래 내역을 최신순으로 반환합니다.",
+)
 def get_token_history(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),

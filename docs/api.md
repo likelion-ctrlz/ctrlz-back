@@ -32,6 +32,18 @@
 }
 ```
 
+### DELETE /session
+로그아웃. `Authorization: Bearer {session_token}` 헤더로 넘어온 세션을 삭제합니다.
+이미 만료·삭제된 토큰이어도 에러 없이 성공 처리됩니다.
+
+**Response**
+```json
+{
+  "status": "success",
+  "data": {"message": "로그아웃되었습니다"}
+}
+```
+
 ## 사용자 (인증 필요)
 
 ### GET /users/me
