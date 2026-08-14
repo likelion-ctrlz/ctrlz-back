@@ -156,7 +156,9 @@ async def submit_mission(
     description=(
         "특정 미션의 가장 최근 인증 시도 결과를 조회합니다. "
         "`POST /missions/{mission_id}/submit`은 현재 동기 처리라 즉시 결과가 나오지만, "
-        "추후 비동기 처리로 바뀌는 경우를 대비한 폴링용 엔드포인트입니다."
+        "추후 비동기 처리로 바뀌는 경우를 대비한 폴링용 엔드포인트입니다.\n\n"
+        "`photo_url`은 제출 당시 S3에 업로드된 인증 사진 URL을 그대로 반환합니다 "
+        "(버킷이 퍼블릭 읽기로 설정되어 있어야 프론트에서 바로 렌더링됩니다)."
     ),
 )
 def get_mission_result(
@@ -184,6 +186,7 @@ def get_mission_result(
             "ai_verdict": completion.ai_verdict,
             "ai_feedback": completion.ai_feedback,
             "token_earned": completion.token_earned,
+            "photo_url": completion.photo_url,
         },
     }
 
