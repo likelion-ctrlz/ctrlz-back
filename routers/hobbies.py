@@ -12,7 +12,11 @@ from models.user import User
 router = APIRouter(prefix="/hobbies", tags=["hobbies"])
 
 
-@router.get("/recommended")
+@router.get(
+    "/recommended",
+    summary="추천 취미활동 목록 조회",
+    description="유저의 자가진단 `status_level`에 맞는 취미활동을 `hobby_activities` 테이블에서 필터링해 반환합니다.",
+)
 def get_recommended_hobbies(
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
@@ -38,7 +42,16 @@ def get_recommended_hobbies(
     return {"status": "success", "data": data}
 
 
-@router.post("/{hobby_id}/apply")
+@router.post(
+    "/{hobby_id}/apply",
+    summary="취미활동 참여 신청",
+    description=(
+        "보유 토큰으로 취미활동 참여를 신청합니다. "
+        "잔액이 `token_cost`보다 적으면 400 에러를 반환합니다.\n\n"
+        "신청과 동시에 `token_wallets.token_balance`가 즉시 차감되고 `token_transactions`에 "
+        "`reason='hobby_apply'`, 음수 `amount`로 이력이 남습니다."
+    ),
+)
 def apply_hobby(
     hobby_id: str,
     current_user: User = Depends(get_current_user),

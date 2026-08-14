@@ -1,6 +1,6 @@
 from datetime import date as date_cls
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session as DBSession
 
 from database import get_db
@@ -12,9 +12,18 @@ from models.user import User
 router = APIRouter(prefix="/reports", tags=["reports"])
 
 
-@router.get("/daily")
+@router.get(
+    "/daily",
+    summary="일일 리포트 조회",
+    description=(
+        "해당 날짜의 미션 수행 요약(완료 개수, 획득 토큰, 미션명 목록)과 AI 리포트 문구를 반환합니다.\n\n"
+        "이미 생성된 리포트가 있으면 그대로 반환하고, 없으면 그날 완료된 미션들을 집계해 새로 생성·저장합니다 "
+        "(하루에 한 번만 생성되고 이후엔 캐시처럼 재사용됨). "
+        "현재 `ai_report_text`는 AI가 아니라 템플릿 문자열로 생성됩니다."
+    ),
+)
 def get_daily_report(
-    date: str | None = None,
+    date: str | None = Query(None, description="YYYY-MM-DD. 생략 시 오늘 날짜"),
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):

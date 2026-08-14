@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session as DBSession
 
 from database import get_db
@@ -21,7 +21,14 @@ DESCRIPTIONS = {
 
 
 class AssessmentSubmitRequest(BaseModel):
-    answers: list[int]
+    answers: list[int] = Field(
+        description=(
+            "5문항 응답 점수를 순서대로 담은 배열. "
+            "[1.지지체계, 2.사회적빈도, 3.외출빈도, 4.소속여부, 5.변화가능범위] 순서를 반드시 지켜야 합니다. "
+            "각 문항의 점수 범위는 문항마다 다릅니다 (0~3 또는 0~4)."
+        ),
+        examples=[[2, 3, 4, 3, 2]],
+    )
 
 
 def _score_to_level(total: int) -> int:
@@ -51,7 +58,18 @@ def _classify_type(answers: list[int]) -> str:
     return "고립형" if frequency >= 2 else "관찰군"
 
 
-@router.post("/submit")
+@router.post(
+    "/submit",
+    summary="자가진단 설문 제출",
+    description=(
+        "5문항 설문 응답을 받아 위험 수준(레벨 1~4)과 유형(관찰군/은둔형/고립형/복합형)을 산출하고 "
+        "`users` 테이블에 저장합니다. 재제출 시 이전 결과를 덮어씁니다.\n\n"
+        "**레벨**: 5문항 총점(0~17점) 기준 — 0~4점 Lv.1(경미), 5~9점 Lv.2(관심 필요), "
+        "10~13점 Lv.3(적극 개입 필요), 14~17점 Lv.4(고위험)\n\n"
+        "**유형**: 외출빈도·사회적빈도·소속여부 3문항 합(핵심 위험 점수, 0~10)이 4점 미만이면 "
+        "무조건 관찰군. 4점 이상이면 외출빈도·지지체계 점수 조합으로 은둔형/고립형/복합형/관찰군 중 분류합니다."
+    ),
+)
 def submit_assessment(
     payload: AssessmentSubmitRequest,
     current_user: User = Depends(get_current_user),
@@ -80,7 +98,11 @@ def submit_assessment(
     }
 
 
-@router.get("/result")
+@router.get(
+    "/result",
+    summary="가장 최근 자가진단 결과 조회",
+    description="가장 최근 제출한 자가진단 결과(레벨, 유형)를 조회합니다. 아직 한 번도 제출하지 않았다면 404를 반환합니다.",
+)
 def get_assessment_result(current_user: User = Depends(get_current_user)):
     if current_user.status_level is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="자가진단 결과가 없습니다")

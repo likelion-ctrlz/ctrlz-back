@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session as DBSession
 
 from ai.ai_service import summarize_diary, transcribe_diary
@@ -11,10 +11,21 @@ from services.s3 import upload_file
 router = APIRouter(prefix="/diary", tags=["diary"])
 
 
-@router.post("/entries")
+@router.post(
+    "/entries",
+    summary="일기 등록 (음성 또는 텍스트)",
+    description=(
+        "말하는 일기장에 한 건을 등록합니다. `audio`와 `text_content` 중 하나는 반드시 있어야 합니다.\n\n"
+        "**음성(`audio`)으로 등록 시**: S3에 업로드 후 OpenAI Whisper로 STT 변환 + GPT로 감정 분석까지 자동 처리됩니다. "
+        "감정 분석 결과 `risk_level`이 2(자기위해 신호)면 `risk_flag=True`로 저장됩니다 "
+        "(현재 별도 위기대응 알림 로직은 없고 플래그만 저장).\n\n"
+        "**텍스트(`text_content`)로 등록 시**: STT/감정분석 없이 입력한 텍스트를 그대로 저장합니다 "
+        "(텍스트 전용 AI 감정분석 함수는 아직 없음)."
+    ),
+)
 async def create_diary_entry(
-    audio: UploadFile | None = File(None),
-    text_content: str | None = Form(None),
+    audio: UploadFile | None = File(None, description="음성 일기 파일 (m4a/webm 등). text_content와 배타적이지 않지만 보통 둘 중 하나만 사용"),
+    text_content: str | None = Form(None, description="텍스트로 직접 입력한 일기 내용. audio가 없을 때 필수"),
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
@@ -59,9 +70,13 @@ async def create_diary_entry(
     }
 
 
-@router.get("/entries")
+@router.get(
+    "/entries",
+    summary="일기 목록 조회",
+    description="본인이 작성한 일기를 최신순으로 반환합니다. 다른 유저의 일기는 조회할 수 없습니다.",
+)
 def list_diary_entries(
-    limit: int = 10,
+    limit: int = Query(10, description="반환할 최대 일기 개수"),
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
@@ -86,9 +101,16 @@ def list_diary_entries(
     return {"status": "success", "data": data}
 
 
-@router.get("/summary")
+@router.get(
+    "/summary",
+    summary="최근 N일 감정 추이 요약",
+    description=(
+        "최근 `days`일간의 일기를 모아 감정 추이(`emotion_trend`)와 AI가 생성한 한두 문장짜리 요약(`ai_summary`)을 반환합니다. "
+        "AI 요약은 진단·조언 없이 변화만 짚어주는 톤으로 생성됩니다 (병명·상태 규정 표현 금지)."
+    ),
+)
 def get_diary_summary(
-    days: int = 7,
+    days: int = Query(7, description="집계할 기간(일). 최근 이 기간 내 등록된 일기까지 포함"),
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):

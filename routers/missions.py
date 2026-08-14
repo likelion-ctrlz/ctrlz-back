@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session as DBSession
 
@@ -15,44 +15,63 @@ from services.s3 import upload_file
 router = APIRouter(prefix="/missions", tags=["missions"])
 
 
-@router.get("/recommended")
+@router.get(
+    "/recommended",
+    summary="추천 미션 목록 조회",
+    description=(
+        "레벨 1(쉬움)~4(어려움) 각 레벨에서 미션을 1개씩 뽑아 난이도 사다리 형태로 총 4개를 반환합니다. "
+        "유저의 자가진단 `status_level`로 필터링해서 특정 레벨만 보여주지 않고, "
+        "항상 레벨 1~4를 고르게 보여줍니다 (자가진단 미완료 유저도 동일하게 조회 가능).\n\n"
+        "AI 기반 추천이 아니라 DB 필터링을 사용합니다 (재현성·난이도 곡선 안정성을 위해 의도된 설계)."
+    ),
+)
 def get_recommended_missions(
-    limit: int = 5,
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
-    # 미션 추천은 DB 필터링 사용 (AI 미션 풀 미사용 확정)
-    query = db.query(Mission).filter(Mission.is_active.is_(True))
-    if current_user.status_level is not None:
-        query = query.filter(Mission.target_level.any(current_user.status_level))
-    if current_user.user_type is not None:
-        query = query.filter(Mission.target_type.any(current_user.user_type))
+    data = []
+    for level in (1, 2, 3, 4):
+        mission = (
+            db.query(Mission)
+            .filter(Mission.is_active.is_(True), Mission.target_level.any(level))
+            .order_by(Mission.created_at)
+            .first()
+        )
+        if mission is None:
+            continue
 
-    missions = query.limit(limit).all()
-
-    data = [
-        {
-            "mission_id": str(m.mission_id),
-            "title": m.title,
-            "description": m.description,
-            "difficulty": m.difficulty,
-            "category": m.category,
-            "verification_type": m.verification_type,
-            "token_reward": m.token_reward,
-        }
-        for m in missions
-    ]
+        data.append({
+            "mission_id": str(mission.mission_id),
+            "title": mission.title,
+            "description": mission.description,
+            "difficulty": mission.difficulty,
+            "category": mission.category,
+            "verification_type": mission.verification_type,
+            "token_reward": mission.token_reward,
+        })
 
     return {"status": "success", "data": data}
 
 
-@router.post("/{mission_id}/submit")
+@router.post(
+    "/{mission_id}/submit",
+    summary="미션 인증 사진 제출",
+    description=(
+        "미션 수행 인증 사진을 업로드하고 AI(GPT-4o-mini Vision)로 판별합니다. "
+        "`multipart/form-data`로 사진 파일과 촬영 GPS·시각을 함께 보내주세요.\n\n"
+        "**처리 흐름**: 사진을 S3에 업로드 → AI 판별 → 통과 시 `mission_completions.status='approved'`로 저장하고 "
+        "`token_wallets` 잔액을 즉시 `token_reward`만큼 적립 + `token_transactions`에 이력 기록. "
+        "실패 시 `status='rejected'`, 토큰 지급 없음.\n\n"
+        "AI는 실패 판정을 최소화하도록 설계되어 있어(어렵게 외출한 사용자에게 '실패'는 심한 트리거가 됨) "
+        "`ai_feedback`은 판정과 무관하게 항상 긍정적인 문구입니다."
+    ),
+)
 async def submit_mission(
     mission_id: str,
-    photo: UploadFile = File(...),
-    gps_lat: float = Form(...),
-    gps_lng: float = Form(...),
-    taken_at: datetime = Form(...),
+    photo: UploadFile = File(..., description="미션 인증 사진 파일 (jpg/png 등 이미지)"),
+    gps_lat: float = Form(..., description="사진 촬영 위치 위도"),
+    gps_lng: float = Form(..., description="사진 촬영 위치 경도"),
+    taken_at: datetime = Form(..., description="사진 촬영 시각 (ISO 8601)"),
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
@@ -118,7 +137,15 @@ async def submit_mission(
     }
 
 
-@router.get("/{mission_id}/result")
+@router.get(
+    "/{mission_id}/result",
+    summary="미션 인증 결과 조회",
+    description=(
+        "특정 미션의 가장 최근 인증 시도 결과를 조회합니다. "
+        "`POST /missions/{mission_id}/submit`은 현재 동기 처리라 즉시 결과가 나오지만, "
+        "추후 비동기 처리로 바뀌는 경우를 대비한 폴링용 엔드포인트입니다."
+    ),
+)
 def get_mission_result(
     mission_id: str,
     current_user: User = Depends(get_current_user),
@@ -148,9 +175,13 @@ def get_mission_result(
     }
 
 
-@router.get("/history")
+@router.get(
+    "/history",
+    summary="미션 완료 이력 조회",
+    description="유저의 미션 인증 시도 이력을 최신순으로 반환합니다. `date`를 넘기면 해당 날짜(YYYY-MM-DD)에 완료된 건만 필터링합니다.",
+)
 def get_mission_history(
-    date: str | None = None,
+    date: str | None = Query(None, description="YYYY-MM-DD 형식. 넘기면 해당 날짜 완료 건만 필터링"),
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
 ):
