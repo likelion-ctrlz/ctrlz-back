@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session as DBSession
@@ -5,69 +7,44 @@ from sqlalchemy.orm import Session as DBSession
 from database import get_db
 from dependencies import get_current_user
 from models.user import User
+from services.assessment import calculate_assessment
 
 router = APIRouter(prefix="/assessment", tags=["assessment"])
 
-# 문항 순서: [1.지지체계, 2.사회적빈도, 3.외출빈도, 4.소속여부, 5.변화가능범위]
-# 만점 17점 (3+3+4+3+4). 문항별 배점은 피그마 설문 문구 기준.
-QUESTION_COUNT = 5
+# 문항 순서: [1.외출빈도, 2.두문불출, 3.지속기간, 4.오프라인접촉, 5.관계형태, 6.지지체계, 7.소속여부, 8.정서상태]
+QUESTION_COUNT = 8
 
 DESCRIPTIONS = {
-    1: "전반적으로 안정적인 상태예요. 꾸준히 활동을 이어가봐요.",
-    2: "고립·은둔 경향이 나타나기 시작했어요. 작은 외출 미션부터 시작해봐요.",
-    3: "고립·은둔 경향이 뚜렷해요. 적극적인 개입이 필요한 상태예요.",
-    4: "도움이 필요한 상태예요. 전문 프로그램 연계를 함께 살펴봐요.",
+    1: "외출과 사회적 교류가 많이 위축되어 있어요. 작은 미션부터 천천히 시작해봐요.",
+    2: "외출 빈도가 낮고 사회적 활동이 제한되어 있어요. 작은 외출 미션부터 시작해봐요.",
+    3: "고립·은둔 경향이 나타나기 시작했어요. 꾸준한 루틴을 만들어가봐요.",
+    4: "전반적으로 안정적인 상태예요. 꾸준히 활동을 이어가봐요.",
 }
 
 
 class AssessmentSubmitRequest(BaseModel):
     answers: list[int] = Field(
         description=(
-            "5문항 응답 점수를 순서대로 담은 배열. "
-            "[1.지지체계, 2.사회적빈도, 3.외출빈도, 4.소속여부, 5.변화가능범위] 순서를 반드시 지켜야 합니다. "
-            "각 문항의 점수 범위는 문항마다 다릅니다 (0~3 또는 0~4)."
+            "8문항 응답 점수를 순서대로 담은 배열. "
+            "[1.외출빈도, 2.두문불출, 3.지속기간, 4.오프라인접촉, 5.관계형태, 6.지지체계, 7.소속여부, 8.정서상태] "
+            "순서를 반드시 지켜야 합니다. "
+            "Q1(0~4), Q2(0~3), Q3(0~4), Q4(0~4), Q5(0~3), Q6(0~3), Q7(0~3), Q8(0~3)."
         ),
-        examples=[[2, 3, 4, 3, 2]],
+        examples=[[3, 2, 2, 3, 2, 2, 2, 1]],
     )
-
-
-def _score_to_level(total: int) -> int:
-    if total <= 4:
-        return 1
-    if total <= 9:
-        return 2
-    if total <= 13:
-        return 3
-    return 4
-
-
-def _classify_type(answers: list[int]) -> str:
-    support, frequency, outing, belonging, _change = answers
-
-    # 핵심 위험 점수 = 외출(3) + 사회적빈도(2) + 소속(4), 범위 0~10
-    core_risk = outing + frequency + belonging
-    if core_risk < 4:
-        return "관찰군"
-
-    if outing >= 3 and support >= 2:
-        return "복합형"
-    if outing >= 3 and support < 2:
-        return "은둔형"
-    if outing < 3 and support >= 2:
-        return "고립형"
-    return "고립형" if frequency >= 2 else "관찰군"
 
 
 @router.post(
     "/submit",
     summary="자가진단 설문 제출",
     description=(
-        "5문항 설문 응답을 받아 위험 수준(레벨 1~4)과 유형(관찰군/은둔형/고립형/복합형)을 산출하고 "
-        "`users` 테이블에 저장합니다. 재제출 시 이전 결과를 덮어씁니다.\n\n"
-        "**레벨**: 5문항 총점(0~17점) 기준 — 0~4점 Lv.1(경미), 5~9점 Lv.2(관심 필요), "
-        "10~13점 Lv.3(적극 개입 필요), 14~17점 Lv.4(고위험)\n\n"
-        "**유형**: 외출빈도·사회적빈도·소속여부 3문항 합(핵심 위험 점수, 0~10)이 4점 미만이면 "
-        "무조건 관찰군. 4점 이상이면 외출빈도·지지체계 점수 조합으로 은둔형/고립형/복합형/관찰군 중 분류합니다."
+        "8문항 응답을 받아 은둔축·고립축·심각도축 3개 축으로 위험 수준(레벨 1~4)과 "
+        "유형(관찰군/은둔형/고립형/복합형)을 산출하고 `users` 테이블에 저장합니다. 재제출 시 이전 결과를 덮어씁니다.\n\n"
+        "**1단계 스크리닝 게이트**: 은둔축+고립축 합산 점수가 만점(21점)의 42% 미만이면 무조건 관찰군(레벨 4)으로 분류하고 종료합니다.\n\n"
+        "**2단계 유형 판정**: 은둔축 비율 42% 이상이면서 Q3(지속기간) ≥ 2(6개월 이상)면 은둔형, "
+        "고립축 비율 42% 이상이면 고립형, 둘 다 해당하면 복합형입니다.\n\n"
+        "**3단계 레벨 산정**: 3축 평균(overall_pct) 75%↑ Lv.1(가장 심각) / 50%↑ Lv.2 / 25%↑ Lv.3 / 그 미만 Lv.4. "
+        "관찰군은 무조건 레벨 4."
     ),
 )
 def submit_assessment(
@@ -81,19 +58,19 @@ def submit_assessment(
             detail=f"answers는 {QUESTION_COUNT}개 문항 응답이어야 합니다",
         )
 
-    level = _score_to_level(sum(payload.answers))
-    user_type = _classify_type(payload.answers)
+    result = calculate_assessment(payload.answers)
 
-    current_user.status_level = level
-    current_user.user_type = user_type
+    current_user.assessment_level = result["assessment_level"]
+    current_user.assessment_type = result["assessment_type"]
+    current_user.assessment_score = result["assessment_score"]
+    current_user.assessed_at = datetime.now(timezone.utc)
     db.commit()
 
     return {
         "status": "success",
         "data": {
-            "status_level": level,
-            "user_type": user_type,
-            "description": DESCRIPTIONS[level],
+            **result,
+            "description": DESCRIPTIONS[result["assessment_level"]],
         },
     }
 
@@ -101,17 +78,18 @@ def submit_assessment(
 @router.get(
     "/result",
     summary="가장 최근 자가진단 결과 조회",
-    description="가장 최근 제출한 자가진단 결과(레벨, 유형)를 조회합니다. 아직 한 번도 제출하지 않았다면 404를 반환합니다.",
+    description="가장 최근 제출한 자가진단 결과(레벨, 유형, 점수)를 조회합니다. 아직 한 번도 제출하지 않았다면 404를 반환합니다.",
 )
 def get_assessment_result(current_user: User = Depends(get_current_user)):
-    if current_user.status_level is None:
+    if current_user.assessment_level is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="자가진단 결과가 없습니다")
 
     return {
         "status": "success",
         "data": {
-            "status_level": current_user.status_level,
-            "user_type": current_user.user_type,
-            "assessed_at": current_user.updated_at,
+            "assessment_level": current_user.assessment_level,
+            "assessment_type": current_user.assessment_type,
+            "assessment_score": current_user.assessment_score,
+            "assessed_at": current_user.assessed_at,
         },
     }

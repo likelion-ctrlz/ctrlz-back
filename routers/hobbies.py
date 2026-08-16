@@ -17,7 +17,7 @@ router = APIRouter(prefix="/hobbies", tags=["hobbies"])
     "/recommended",
     summary="추천 취미활동 목록 조회",
     description=(
-        "유저의 자가진단 `status_level`에 맞는 취미활동을 `hobby_activities` 테이블에서 필터링해 반환합니다.\n\n"
+        "유저의 자가진단 `assessment_level`에 맞는 취미활동을 `hobby_activities` 테이블에서 필터링해 반환합니다.\n\n"
         "매칭되는 데이터가 없으면(아직 시딩 전 등) 공공데이터포털 에버러닝 강좌정보 API로 가져와 "
         "`hobby_activities`에 실제 레코드로 저장한 뒤 반환합니다 (모든 레벨에 매칭되도록 저장). "
         "이렇게 저장된 항목도 `hobby_id`가 정식으로 발급되어 `POST /{hobby_id}/apply`로 신청 가능합니다 "
@@ -30,8 +30,8 @@ def get_recommended_hobbies(
     db: DBSession = Depends(get_db),
 ):
     query = db.query(HobbyActivity).filter(HobbyActivity.is_active.is_(True))
-    if current_user.status_level is not None:
-        query = query.filter(HobbyActivity.recommended_level.any(current_user.status_level))
+    if current_user.assessment_level is not None:
+        query = query.filter(HobbyActivity.recommended_level.any(current_user.assessment_level))
 
     hobbies = query.all()
 

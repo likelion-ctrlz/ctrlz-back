@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session as DBSession
 
 from database import get_db
+from demo import is_demo_nickname
 from dependencies import bearer_scheme
 from models.session import Session
 from models.token import TokenWallet
@@ -35,7 +36,7 @@ class SessionCreateRequest(BaseModel):
     ),
 )
 def create_session(payload: SessionCreateRequest, db: DBSession = Depends(get_db)):
-    user = User(nickname=payload.nickname)
+    user = User(nickname=payload.nickname, is_demo=is_demo_nickname(payload.nickname))
     db.add(user)
     db.flush()
 
@@ -55,6 +56,7 @@ def create_session(payload: SessionCreateRequest, db: DBSession = Depends(get_db
             "session_token": session.token,
             "user_id": str(user.user_id),
             "nickname": user.nickname,
+            "is_demo": user.is_demo,
         },
     }
 
