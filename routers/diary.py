@@ -6,6 +6,7 @@ from database import get_db
 from dependencies import get_current_user
 from models.diary import DiaryEntry
 from models.user import User
+from services.diary import compute_emotion_stats
 from services.s3 import upload_file
 
 router = APIRouter(prefix="/diary", tags=["diary"])
@@ -105,7 +106,8 @@ def list_diary_entries(
     "/summary",
     summary="최근 N일 감정 추이 요약",
     description=(
-        "최근 `days`일간의 일기를 모아 감정 추이(`emotion_trend`)와 AI가 생성한 한두 문장짜리 요약(`ai_summary`)을 반환합니다. "
+        "최근 `days`일간의 일기를 모아 감정 추이(`emotion_trend`), 감정별 비율(`emotion_percentages`), "
+        "가장 자주 기록된 감정(`most_frequent_emotion`), AI가 생성한 한두 문장짜리 요약(`ai_summary`)을 반환합니다. "
         "AI 요약은 진단·조언 없이 변화만 짚어주는 톤으로 생성됩니다 (병명·상태 규정 표현 금지)."
     ),
 )
@@ -132,12 +134,15 @@ def get_diary_summary(
     ]
     result = summarize_diary(ai_input)
     emotion_trend = [{"date": t["date"], "primary": t["emotion"]} for t in result["trend"]]
+    stats = compute_emotion_stats(result["trend"])
 
     return {
         "status": "success",
         "data": {
             "period": f"최근 {days}일",
             "emotion_trend": emotion_trend,
+            "most_frequent_emotion": stats["most_frequent_emotion"],
+            "emotion_percentages": stats["emotion_percentages"],
             "ai_summary": result["summary"],
         },
     }

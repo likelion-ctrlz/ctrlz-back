@@ -13,6 +13,20 @@ from services.everlearning import fetch_hobby_courses
 router = APIRouter(prefix="/hobbies", tags=["hobbies"])
 
 
+def _serialize_hobby_card(hobby: HobbyActivity) -> dict:
+    """목록 카드 + 상세 페이지 공통으로 쓰는 필드."""
+    return {
+        "hobby_id": str(hobby.hobby_id),
+        "title": hobby.title,
+        "description": hobby.description,
+        "category": hobby.category,
+        "tags": hobby.tags or [],
+        "difficulty": hobby.difficulty,
+        "image_url": hobby.image_url,
+        "token_cost": hobby.token_cost,
+    }
+
+
 @router.get(
     "/recommended",
     summary="추천 취미활동 목록 조회",
@@ -43,7 +57,19 @@ def get_recommended_hobbies(
             HobbyActivity(
                 title=h["title"],
                 description=h["description"],
+                detail_description=h.get("detail_description"),
                 category=h["category"],
+                tags=h.get("tags"),
+                difficulty=h.get("difficulty", "초급"),
+                image_url=h.get("image_url"),
+                schedule=h.get("schedule"),
+                location=h.get("location"),
+                duration=h.get("duration"),
+                capacity=h.get("capacity"),
+                physical_burden=h.get("physical_burden"),
+                social_burden=h.get("social_burden"),
+                preparation_burden=h.get("preparation_burden"),
+                conditions=h.get("conditions"),
                 token_cost=h["token_cost"],
                 recommended_level=[1, 2, 3, 4],
                 is_active=True,
@@ -53,18 +79,40 @@ def get_recommended_hobbies(
         db.add_all(hobbies)
         db.commit()
 
-    data = [
-        {
-            "hobby_id": str(h.hobby_id),
-            "title": h.title,
-            "description": h.description,
-            "category": h.category,
-            "token_cost": h.token_cost,
-        }
-        for h in hobbies
-    ]
+    data = [_serialize_hobby_card(h) for h in hobbies]
 
     return {"status": "success", "data": data}
+
+
+@router.get(
+    "/{hobby_id}",
+    summary="취미활동 상세 조회",
+    description="일정·장소·소요시간·정원·부담 수준(신체 활동/사회적 상호작용/사전 준비)·참여 조건 등 상세 페이지에 필요한 정보를 반환합니다.",
+)
+def get_hobby_detail(
+    hobby_id: str,
+    current_user: User = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
+):
+    hobby = db.get(HobbyActivity, hobby_id)
+    if hobby is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="취미활동을 찾을 수 없습니다")
+
+    return {
+        "status": "success",
+        "data": {
+            **_serialize_hobby_card(hobby),
+            "detail_description": hobby.detail_description,
+            "schedule": hobby.schedule,
+            "location": hobby.location,
+            "duration": hobby.duration,
+            "capacity": hobby.capacity,
+            "physical_burden": hobby.physical_burden,
+            "social_burden": hobby.social_burden,
+            "preparation_burden": hobby.preparation_burden,
+            "conditions": hobby.conditions or [],
+        },
+    }
 
 
 @router.post(

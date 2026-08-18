@@ -96,10 +96,106 @@ def _fetch_filtered_items(num_of_rows: int, region: str | None = None) -> list[E
 # ---------------------------------------------------------------------------
 
 _FALLBACK_HOBBIES = [
-    {"title": "실내 원예 모임", "description": "소규모 원예 활동을 함께해요.", "category": "원예", "token_cost": 30},
-    {"title": "도자기 공방 체험", "description": "손으로 흙을 빚으며 마음을 가라앉혀보세요.", "category": "공예", "token_cost": 40},
-    {"title": "가벼운 스트레칭 모임", "description": "무리 없는 동작으로 몸을 움직여봐요.", "category": "운동", "token_cost": 20},
-    {"title": "드로잉 클래스", "description": "그림 도구만 있으면 누구나 참여할 수 있어요.", "category": "예술", "token_cost": 25},
+    {
+        "title": "실내 원예 모임",
+        "description": "소규모 원예 활동을 함께해요.",
+        "detail_description": (
+            "작은 화분에 씨앗이나 모종을 직접 심고 가꾸는 법을 배우는 모임이에요.\n"
+            "말을 많이 하지 않아도 괜찮아요, 흙을 만지는 시간 자체가 목적이에요."
+        ),
+        "category": "원예",
+        "tags": ["원예", "실내", "초보 환영"],
+        "difficulty": "초급",
+        "image_url": "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=600",
+        "schedule": "매주 화요일 오후 3시",
+        "location": "서울 마포구 모로 커뮤니티룸",
+        "duration": "약 1시간 30분",
+        "capacity": "최대 6명 (소규모로 진행)",
+        "physical_burden": "낮음",
+        "social_burden": "소규모",
+        "preparation_burden": "없음",
+        "conditions": [
+            "재료(화분·모종) 포함, 별도 준비물 없어요",
+            "참여 취소는 하루 전까지 가능해요",
+            "중간에 조용히 나가도 괜찮아요",
+        ],
+        "token_cost": 30,
+    },
+    {
+        "title": "도자기 공방 체험",
+        "description": "손으로 흙을 빚으며 마음을 가라앉혀보세요.",
+        "detail_description": (
+            "손으로 흙을 빚으며 집중과 이완을 동시에 경험할 수 있는 클래스예요.\n"
+            "별도 경험이 없어도 강사가 처음부터 함께 도와드려요."
+        ),
+        "category": "공예",
+        "tags": ["공예", "실내", "초보 환영"],
+        "difficulty": "초급",
+        "image_url": "https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=600",
+        "schedule": "매주 목요일 오후 2시",
+        "location": "서울 마포구 모로 공방 스튜디오",
+        "duration": "약 2시간",
+        "capacity": "최대 8명 (소규모로 진행)",
+        "physical_burden": "낮음",
+        "social_burden": "소규모",
+        "preparation_burden": "없음",
+        "conditions": [
+            "재료비 포함, 별도 준비물 없어요",
+            "참여 취소는 하루 전까지 가능해요",
+            "사진 촬영은 자유이며 공유 의무는 없어요",
+        ],
+        "token_cost": 40,
+    },
+    {
+        "title": "가벼운 스트레칭 모임",
+        "description": "무리 없는 동작으로 몸을 움직여봐요.",
+        "detail_description": (
+            "앉거나 누운 채로도 할 수 있는 가벼운 스트레칭 위주로 진행돼요.\n"
+            "체력이 부담스러워도 눈치 볼 필요 없이 본인 속도로 따라가면 돼요."
+        ),
+        "category": "운동",
+        "tags": ["운동", "실내", "저체력 가능"],
+        "difficulty": "초급",
+        "image_url": "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=600",
+        "schedule": "매주 월·수 오전 11시",
+        "location": "서울 마포구 모로 커뮤니티룸",
+        "duration": "약 40분",
+        "capacity": "최대 10명",
+        "physical_burden": "낮음",
+        "social_burden": "소규모",
+        "preparation_burden": "없음",
+        "conditions": [
+            "편한 복장이면 충분해요, 운동복 없어도 괜찮아요",
+            "매트는 현장에서 대여 가능해요",
+            "참여 취소는 하루 전까지 가능해요",
+        ],
+        "token_cost": 20,
+    },
+    {
+        "title": "드로잉 클래스",
+        "description": "그림 도구만 있으면 누구나 참여할 수 있어요.",
+        "detail_description": (
+            "정해진 주제 없이 그리고 싶은 걸 자유롭게 그려보는 시간이에요.\n"
+            "그림 실력은 상관없어요, 손을 움직이며 생각을 비우는 게 목적이에요."
+        ),
+        "category": "예술",
+        "tags": ["예술", "실내", "자유 참여"],
+        "difficulty": "중급",
+        "image_url": "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=600",
+        "schedule": "매주 금요일 오후 4시",
+        "location": "서울 마포구 모로 아트룸",
+        "duration": "약 1시간 30분",
+        "capacity": "최대 8명 (소규모로 진행)",
+        "physical_burden": "낮음",
+        "social_burden": "소규모",
+        "preparation_burden": "약간",
+        "conditions": [
+            "기본 드로잉 도구는 현장에 준비돼 있어요",
+            "원하는 스케치북·펜이 있다면 직접 가져와도 좋아요",
+            "참여 취소는 하루 전까지 가능해요",
+        ],
+        "token_cost": 25,
+    },
 ]
 
 
@@ -112,11 +208,24 @@ def _item_to_hobby(item: ET.Element) -> dict:
     teacher = text("teacherNm")
     organ = text("organNm")
     parts = [p for p in (organ, f"강사 {teacher}" if teacher else "", place) if p]
+    category = text("categoryNm") or "평생학습"
 
     return {
         "title": text("lectureNm") or "강좌",
         "description": " · ".join(parts),
-        "category": text("categoryNm") or "평생학습",
+        "detail_description": None,  # API가 긴 소개문을 안 줘서 상세 페이지에선 description으로 대체
+        "category": category,
+        "tags": [category],
+        "difficulty": "초급",  # API가 난이도를 안 줘서 기본값. 실제 강좌 사진도 없어 image_url은 None
+        "image_url": None,
+        "schedule": None,
+        "location": place or None,
+        "duration": None,
+        "capacity": None,
+        "physical_burden": None,
+        "social_burden": None,
+        "preparation_burden": None,
+        "conditions": None,
         "token_cost": 30,
     }
 
@@ -124,7 +233,9 @@ def _item_to_hobby(item: ET.Element) -> dict:
 def fetch_hobby_courses(num_of_rows: int = 10) -> list[dict]:
     """에버러닝 강좌 목록 조회.
 
-    Returns: [{"title", "description", "category", "token_cost"}, ...]
+    Returns: 취미활동 딕셔너리 목록. 목록 카드용(title/description/category/difficulty/image_url/token_cost)과
+    상세 페이지용(detail_description/tags/schedule/location/duration/capacity/*_burden/conditions) 필드를 모두 포함.
+    API가 안 주는 상세 필드는 None — 실제 강좌 상세 정보가 없기 때문에 지어내지 않음.
     실패 시 항상 큐레이션된 더미 데이터를 반환 (예외를 던지지 않음).
     """
     items = _fetch_filtered_items(num_of_rows)

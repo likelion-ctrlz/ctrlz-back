@@ -171,7 +171,7 @@ def get_mission_detail(
     summary="미션 인증 사진 제출",
     description=(
         "미션 수행 인증 사진을 업로드하고 AI(GPT-4o-mini Vision)로 판별합니다. "
-        "`multipart/form-data`로 사진 파일과 촬영 GPS·시각을 함께 보내주세요.\n\n"
+        "`multipart/form-data`로 사진 파일과 촬영 시각을 함께 보내주세요.\n\n"
         "**처리 흐름**: 사진을 S3에 업로드 → AI 판별 → 통과 시 `mission_completions.status='approved'`로 저장하고 "
         "XP(`xp_reward`)와 토큰(`token_reward`+`bonus_token`)을 즉시 적립 + `token_transactions`에 이력 기록. "
         "캐릭터는 미션 승인 1건당 XP 임계값과 무관하게 무조건 1레벨 올라갑니다(MAX_LEVEL=4에서 정지) — "
@@ -184,8 +184,6 @@ def get_mission_detail(
 async def submit_mission(
     mission_id: str,
     photo: UploadFile = File(..., description="미션 인증 사진 파일 (jpg/png 등 이미지)"),
-    gps_lat: float = Form(..., description="사진 촬영 위치 위도"),
-    gps_lng: float = Form(..., description="사진 촬영 위치 경도"),
     taken_at: datetime = Form(..., description="사진 촬영 시각 (ISO 8601)"),
     current_user: User = Depends(get_current_user),
     db: DBSession = Depends(get_db),
@@ -214,8 +212,6 @@ async def submit_mission(
     ai_feedback = verdict["comment"]
 
     completion.photo_url = photo_url
-    completion.photo_gps_lat = gps_lat
-    completion.photo_gps_lng = gps_lng
     completion.photo_taken_at = taken_at
     completion.ai_verdict = ai_verdict
     completion.ai_feedback = ai_feedback

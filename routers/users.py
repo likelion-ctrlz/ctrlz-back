@@ -11,7 +11,7 @@ from models.mission import Mission, MissionCompletion
 from models.token import TokenWallet
 from models.user import User
 from services.character import CHARACTER_STAGES, MAX_LEVEL, XP_THRESHOLDS
-from services.missions import difficulty_range_for_level
+from services.missions import calculate_streak, difficulty_range_for_level
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -60,10 +60,20 @@ def _today_recommended_mission(db: DBSession, user: User) -> dict | None:
     }
 
 
+def _mission_streak_days(db: DBSession, user_id) -> int:
+    completions = db.query(MissionCompletion).filter(
+        MissionCompletion.user_id == user_id,
+        MissionCompletion.status == "approved",
+    )
+    completed_dates = {c.completed_at.date() for c in completions if c.completed_at}
+    today = datetime.now(timezone.utc).date()
+    return calculate_streak(completed_dates, today)
+
+
 @router.get(
     "/me",
     summary="내 프로필 조회",
-    description="닉네임, 지역, 자가진단 결과, 캐릭터(모로) 상태, 토큰 잔액, 오늘의 추천 미션까지 한 번에 반환합니다. 홈 화면용 엔드포인트입니다.",
+    description="닉네임, 지역, 자가진단 결과, 캐릭터(모로) 상태, 연속 기록일, 토큰 잔액, 오늘의 추천 미션까지 한 번에 반환합니다. 홈 화면용 엔드포인트입니다.",
 )
 def get_me(
     current_user: User = Depends(get_current_user),
@@ -91,6 +101,8 @@ def get_me(
             "character_xp": current_user.character_xp,
             "character_xp_next_level": xp_next_level,
             "character_image": CHARACTER_STAGES[level]["image"],
+
+            "mission_streak_days": _mission_streak_days(db, current_user.user_id),
 
             "token_balance": wallet.token_balance if wallet else 0,
 
