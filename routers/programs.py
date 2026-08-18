@@ -47,6 +47,7 @@ def get_programs(
                 agency_name=p["agency_name"],
                 region=p["region"] or target_region,
                 description=p["description"],
+                image_url=p.get("image_url"),
                 contact=p["contact"],
                 apply_url=p["apply_url"],
                 is_active=True,
@@ -63,6 +64,7 @@ def get_programs(
             "agency_name": p.agency_name,
             "region": p.region,
             "description": p.description,
+            "image_url": p.image_url,
             "contact": p.contact,
             "apply_url": p.apply_url,
         }

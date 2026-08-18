@@ -17,6 +17,7 @@ class Program(Base):
     target_type = Column(ARRAY(String), nullable=True)
     target_level = Column(ARRAY(Integer), nullable=True)
     description = Column(Text, nullable=True)
+    image_url = Column(String, nullable=True)  # 목데이터 임시 사진(Unsplash). 실제 기관 사진 연동 전까지 사용
     contact = Column(String, nullable=True)
     apply_url = Column(String, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)

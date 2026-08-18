@@ -213,7 +213,7 @@ MISSIONS = [
         "is_wow": False,
     },
     {
-        "title": "집앞 아무 버스나 타고 종점까지 갔다오기",
+        "title": "집 앞 아무 버스나 타보기",
         "description": "목적지 없는 외출도 괜찮은 외출이에요.",
         "detail_description": (
             "집 앞 정류장에서 아무 버스나 골라 타고 종점까지 가보세요.\n"
@@ -232,27 +232,7 @@ MISSIONS = [
         "is_wow": False,
     },
     {
-        "title": "유튜브 보고 편의점에서 나만의 무알코올 음료 만들어보기",
-        "description": "레시피는 유튜브에, 재료는 편의점에 있어요.",
-        "detail_description": (
-            "유튜브에서 무알코올 음료 레시피를 찾아본 뒤, 편의점에서 재료를 사서 직접 만들어보세요.\n"
-            "레시피대로 완벽하지 않아도 괜찮아요, 나만의 조합을 만들어봤다면 충분해요."
-        ),
-        "difficulty": 7,
-        "category": "외출",
-        "verification_type": "photo",
-        "conditions": [
-            "완성한 음료가 보이는 사진이어야 해요",
-            "편의점에서 산 재료(또는 영수증)가 함께 보이면 더 좋아요",
-            "오늘 날짜의 실시간 사진만 인정 돼요",
-        ],
-        "xp_reward": 40,
-        "token_reward": 40,
-        "bonus_token": 0,
-        "is_wow": False,
-    },
-    {
-        "title": "올리브영 가서 가장 마음에 드는 향수 찾아보기",
+        "title": "올리브영 가서 최애 향수 찾아보기",
         "description": "나에게 어울리는 향을 찾아 떠나는 짧은 외출.",
         "detail_description": (
             "올리브영에 들러 향수 테스터를 자유롭게 시향해보세요.\n"
