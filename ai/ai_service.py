@@ -207,6 +207,8 @@ _FALLBACK_DIARY = {
     "risk_level": 0,
 }
 
+_VALID_EMOTIONS = {"편안함", "설렘", "불안", "무기력"}
+
 
 def analyze_text_diary(text: str) -> dict:
     """텍스트로 바로 쓴 일기 감정 분석 (STT 없이 텍스트만 받는 경로).
@@ -240,9 +242,13 @@ def analyze_text_diary(text: str) -> dict:
         data = _parse_json(res.choices[0].message.content)
 
         risk = int(data.get("risk_level", 0))
+        raw_emotion = data.get("emotion")
+        # 방어: 모델이 지시를 어기고 4종 밖의 단어를 반환하면 무시하고 기본값 처리
+        # (프론트 차트가 이 4개 라벨에만 색상을 매핑하고 있어, 다른 값이 오면 깨짐)
+        emotion = raw_emotion if raw_emotion in _VALID_EMOTIONS else _FALLBACK_DIARY["emotion"]
         return {
             "text": data.get("text") or text,
-            "emotion": data.get("emotion", "편안함"),
+            "emotion": emotion,
             "risk_level": max(0, min(2, risk)),
         }
     except Exception as e:
