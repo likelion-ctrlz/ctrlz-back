@@ -13,7 +13,7 @@ OPENAI_API_KEY 가 설정되어 있으면 실제 OpenAI 호출,
 같은 이유로 analyze_emotion_pattern() 도 LLM을 쓰지 않는 순수 함수입니다.
 
 [라벨 체계 — 디자인 확정 기준]
-감정 라벨은 행복/긍정/불안/무기력 4종으로 고정합니다 (프론트 차트가 4개로 그려짐).
+감정 라벨은 편안함/설렘/불안/무기력 4종으로 고정합니다 (프론트 차트가 4개로 그려짐).
 
 [재현성 우선]
 분류·판정 호출은 전부 temperature=0 + JSON 모드로 고정했습니다.
@@ -203,7 +203,7 @@ def verify_photo(image_bytes: bytes, mission_title: str,
 
 _FALLBACK_DIARY = {
     "text": "오늘은 창문을 열어봤다. 바람이 생각보다 차가웠지만 나쁘지 않았다.",
-    "emotion": "행복",  # 라벨 4종: 행복/긍정/불안/무기력
+    "emotion": "편안함",  # 라벨 4종: 편안함/설렘/불안/무기력
     "risk_level": 0,
 }
 
@@ -216,7 +216,7 @@ def analyze_text_diary(text: str) -> dict:
     Returns:
         {"text": str, "emotion": str, "risk_level": int}
 
-        emotion: 행복 | 긍정 | 불안 | 무기력
+        emotion: 편안함 | 설렘 | 불안 | 무기력
         risk_level: 0=일반, 1=주의, 2=자기위해
             ※ 2인 경우 백엔드단에서 상담 연계 안내를 응답에 포함해주세요.
     """
@@ -242,7 +242,7 @@ def analyze_text_diary(text: str) -> dict:
         risk = int(data.get("risk_level", 0))
         return {
             "text": data.get("text") or text,
-            "emotion": data.get("emotion", "행복"),
+            "emotion": data.get("emotion", "편안함"),
             "risk_level": max(0, min(2, risk)),
         }
     except Exception as e:
@@ -346,12 +346,12 @@ def summarize_diary(entries: list) -> dict:
         (순수 함수라 API 장애의 영향을 받지 않음).
     """
     normalized = [
-        {"content": e, "emotion": "행복", "created_at": ""} if isinstance(e, str) else e
+        {"content": e, "emotion": "편안함", "created_at": ""} if isinstance(e, str) else e
         for e in entries
     ]
     recent = normalized[-7:]
     trend = [
-        {"date": (e.get("created_at") or "")[:10], "emotion": e.get("emotion", "행복")}
+        {"date": (e.get("created_at") or "")[:10], "emotion": e.get("emotion", "편안함")}
         for e in recent
     ]
     pattern = analyze_emotion_pattern(normalized)  # 최근 7일 제한 없이 전체 기록 기준
