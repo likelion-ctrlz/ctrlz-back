@@ -315,7 +315,7 @@
 }
 ```
 `pattern`은 감정 기록이 3건 미만이면 `null`.
-`most_frequent_emotion`/`emotion_percentages`는 조회 기간 내 일기가 하나도 없으면 각각 `null`/`{}`. "지난 주 대비" 같은 기간 비교 문구는 아직 없고 `ai_summary`(AI 생성)로만 변화를 짚어줍니다.
+`most_frequent_emotion`/`emotion_percentages`는 조회 기간 내 일기가 하나도 없으면 각각 `null`/`{}`. 이 경우 `ai_summary`도 빈 문자열(`""`)입니다(없는 기록을 지어내지 않음). "지난 주 대비" 같은 기간 비교 문구는 아직 없고 `ai_summary`(AI 생성)로만 변화를 짚어줍니다.
 
 ## 지역 프로그램·기관 (인증 필요)
 

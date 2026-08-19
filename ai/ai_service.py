@@ -360,6 +360,7 @@ def summarize_diary(entries: list) -> dict:
         }
         pattern 은 데이터 3건 미만이면 None. LLM 실패와 무관하게 항상 계산됩니다
         (순수 함수라 API 장애의 영향을 받지 않음).
+        summary 는 entries 가 비어 있으면 빈 문자열("")을 반환합니다 (없는 내용을 지어내지 않음).
     """
     normalized = [
         {"content": e, "emotion": "편안함", "created_at": ""} if isinstance(e, str) else e
@@ -373,8 +374,12 @@ def summarize_diary(entries: list) -> dict:
     pattern = analyze_emotion_pattern(normalized)  # 최근 7일 제한 없이 전체 기록 기준
     fallback = "이번 주에는 바깥 공기를 쐰 날이 늘었어요. 작지만 분명한 변화예요."
 
+    if not recent:
+        # 기록 자체가 없으면 지어낼 내용이 없으므로 빈 요약 반환 (AI 미설정 폴백과는 다른 케이스)
+        return {"summary": "", "trend": trend, "pattern": pattern}
+
     client = _get_client()
-    if client is None or not recent:
+    if client is None:
         return {"summary": fallback, "trend": trend, "pattern": pattern}
 
     try:
