@@ -216,8 +216,13 @@ def analyze_text_diary(text: str) -> dict:
     transcribe_diary() 는 STT만 수행하고 감정 분석은 이 함수에 위임합니다.
 
     Returns:
-        {"text": str, "emotion": str, "risk_level": int}
+        {"text": str, "cleaned_text": str, "emotion": str, "risk_level": int}
 
+        text: 항상 입력받은 원문 그대로 — DB에 저장되는 transcript는 이 값을 씁니다.
+        cleaned_text: 모델이 다듬은 버전(추임새 제거 등). 참고용으로만 반환하며,
+            아직 어디에서도 저장/노출하지 않습니다 — 실측 결과 모델이 "정리"를 넘어
+            원문과 다른 내용을 지어내는 경우가 있었기 때문에, 실제 사용 전에는
+            text와 비교 검증 없이 그대로 노출하지 마세요.
         emotion: 편안함 | 설렘 | 불안 | 무기력
         risk_level: 0=일반, 1=주의, 2=자기위해
             ※ 2인 경우 백엔드단에서 상담 연계 안내를 응답에 포함해주세요.
@@ -247,7 +252,12 @@ def analyze_text_diary(text: str) -> dict:
         # (프론트 차트가 이 4개 라벨에만 색상을 매핑하고 있어, 다른 값이 오면 깨짐)
         emotion = raw_emotion if raw_emotion in _VALID_EMOTIONS else _FALLBACK_DIARY["emotion"]
         return {
-            "text": data.get("text") or text,
+            # text는 모델이 반환한 값을 쓰지 않고 항상 원문 그대로 반환한다.
+            # 실측 결과 모델이 "정리"를 넘어 완전히 다른 내용을 지어내는 경우가 있었음
+            # (사용자가 쓰지 않은 문장으로 일기가 바뀌어 저장되는 심각한 문제) — 감정/위험도
+            # 판단에만 모델을 신뢰하고, 사용자가 실제로 쓴/말한 텍스트는 절대 덮어쓰지 않는다.
+            "text": text,
+            "cleaned_text": data.get("text") or text,
             "emotion": emotion,
             "risk_level": max(0, min(2, risk)),
         }
