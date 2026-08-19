@@ -54,6 +54,7 @@ def _today_recommended_mission(db: DBSession, user: User) -> dict | None:
     return {
         "mission_id": str(mission.mission_id),
         "title": mission.title,
+        "description": mission.description,
         "token_reward": mission.token_reward,
         "xp_reward": mission.xp_reward,
         "difficulty": mission.difficulty,

@@ -66,7 +66,7 @@
     "token_balance": 150,
 
     "today_recommended_mission": {
-      "mission_id": "...", "title": "산책하면서 길고양이 찾아서 사진찍기",
+      "mission_id": "...", "title": "산책하면서 길고양이 찾아서 사진찍기", "description": "혹시 알아요? 오늘 당신에게 행운이 찾아올지",
       "token_reward": 20, "xp_reward": 20, "difficulty": 3
     }
   }
