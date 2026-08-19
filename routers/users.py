@@ -49,9 +49,16 @@ def _today_recommended_mission(db: DBSession, user: User) -> dict | None:
     if not candidates:
         return None
 
+    # DB가 반환하는 행 순서(ORDER BY 없음)에 기대지 않도록 미션별로 먼저 결정론적으로 정렬.
+    # 이렇게 해두면 다른 미션이 완료 처리되어 candidates 길이가 바뀌어도, 정렬 순서 자체는
+    # 흔들리지 않아서 "새로고침할 때마다 완전히 다른 미션이 뜨는" 문제가 없음
+    ordered = sorted(
+        candidates,
+        key=lambda m: hashlib.md5(f"{user.user_id}:{m.mission_id}".encode()).hexdigest(),
+    )
     seed = f"{user.user_id}:today:{today.isoformat()}"
-    idx = int(hashlib.md5(seed.encode()).hexdigest(), 16) % len(candidates)
-    mission = candidates[idx]
+    idx = int(hashlib.md5(seed.encode()).hexdigest(), 16) % len(ordered)
+    mission = ordered[idx]
 
     return {
         "mission_id": str(mission.mission_id),
