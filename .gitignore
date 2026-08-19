@@ -21,3 +21,6 @@ Thumbs.db
 
 # claude
 claude/
+
+# AI 개인 로컬 테스트 스크립트 (실제 OPENAI_API_KEY로 돌리는 용도, 커밋 대상 아님)
+test_ai_stability.py
