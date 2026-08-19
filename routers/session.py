@@ -36,11 +36,15 @@ class SessionCreateRequest(BaseModel):
     ),
 )
 def create_session(payload: SessionCreateRequest, db: DBSession = Depends(get_db)):
-    user = User(nickname=payload.nickname, is_demo=is_demo_nickname(payload.nickname))
-    db.add(user)
-    db.flush()
-
-    db.add(TokenWallet(user_id=user.user_id, token_balance=0))
+    # 같은 닉네임으로 다시 로그인하면 새 계정을 또 만들지 않고 기존 계정을 그대로 재사용
+    # (닉네임이 사실상 유일 식별자로 쓰이는 무소셜 로그인 구조라, 재로그인할 때마다
+    # 계정이 새로 생기면 이전 기록·토큰·미션 이력을 잃어버리게 됨)
+    user = db.query(User).filter(User.nickname == payload.nickname).first()
+    if user is None:
+        user = User(nickname=payload.nickname, is_demo=is_demo_nickname(payload.nickname))
+        db.add(user)
+        db.flush()
+        db.add(TokenWallet(user_id=user.user_id, token_balance=0))
 
     session = Session(
         user_id=user.user_id,
