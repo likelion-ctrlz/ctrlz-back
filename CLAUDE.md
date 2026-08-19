@@ -325,7 +325,7 @@ async def get_current_user(authorization: str = Header(...), db: Session = Depen
 
 - Railway 무료 티어는 일정 시간 미사용 시 슬립 → 발표 전 API 한 번 호출해서 깨워둘 것
 - Supabase 무료 티어로 2주 운영 충분
-- 앱 시작 시 `data/*_seed.py`로 목데이터 시딩 실행 (중복 방지 로직 포함)
+- 앱 시작 시 `seed_missions.py`/`seed_hobbies.py`/`seed_programs.py`로 목데이터 시딩 자동 실행 (`main.py`에서 호출, 테이블에 데이터가 이미 있으면 스킵)
 
 ## 브랜치 · 커밋
 

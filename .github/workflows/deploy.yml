@@ -1,0 +1,25 @@
+name: Deploy backend to EC2
+
+# main에 push되면 EC2로 배포. 다른 브랜치에서 배포하려면 branches 값을 바꾸세요.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH로 접속해 최신 코드 받고 서비스 재시작
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            cd ${{ secrets.EC2_APP_DIR }}
+            git pull origin main
+            source venv/bin/activate
+            pip install -r requirements.txt
+            sudo systemctl restart ctrlz-back
+            sudo systemctl status ctrlz-back --no-pager

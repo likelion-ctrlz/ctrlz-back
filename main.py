@@ -5,8 +5,17 @@ from fastapi.responses import JSONResponse
 
 from database import Base, engine
 from routers import assessment, diary, hobbies, missions, programs, reports, session, tokens, users
+from seed_hobbies import seed as seed_hobbies_data
+from seed_missions import seed as seed_missions_data
+from seed_programs import seed as seed_programs_data
 
 Base.metadata.create_all(bind=engine)
+
+# 앱 시작 시 목데이터 자동 시딩. 세 스크립트 모두 테이블에 데이터가 이미 있으면
+# 스킵하는 가드가 있어(seed_*.py 참고) DB를 새로 바꾸거나 재배포해도 안전하게 매번 실행 가능.
+seed_missions_data()
+seed_hobbies_data()
+seed_programs_data()
 
 app = FastAPI(
     title="ctrlz Backend API",
