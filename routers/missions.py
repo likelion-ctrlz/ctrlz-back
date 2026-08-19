@@ -12,10 +12,14 @@ from models.mission import Mission, MissionCompletion
 from models.token import TokenTransaction, TokenWallet
 from models.user import User
 from services.character import check_level_up
-from services.missions import difficulty_range_for_level
+from services.missions import calculate_streak, difficulty_range_for_level
 from services.s3 import upload_file
 
 router = APIRouter(prefix="/missions", tags=["missions"])
+
+# taken_at 허용 오차 — 너무 과거 사진 재사용(위조)을 막되, 업로드 네트워크 지연은 허용
+MAX_TAKEN_AT_PAST_SECONDS = 600  # 10분
+MAX_TAKEN_AT_FUTURE_SECONDS = 120  # 기기 시계 오차 허용
 
 
 def _deterministic_order(missions: list[Mission], user_id) -> list[Mission]:
@@ -172,10 +176,14 @@ def get_mission_detail(
     description=(
         "미션 수행 인증 사진을 업로드하고 AI(GPT-4o-mini Vision)로 판별합니다. "
         "`multipart/form-data`로 사진 파일과 촬영 시각을 함께 보내주세요.\n\n"
+        "`taken_at`이 현재 시각 기준 10분 넘게 과거이거나 2분 넘게 미래면 422로 거절됩니다 "
+        "(과거 사진 재사용 등 위조 방지 — 실시간 촬영만 인증 허용).\n\n"
         "**처리 흐름**: 사진을 S3에 업로드 → AI 판별 → 통과 시 `mission_completions.status='approved'`로 저장하고 "
         "XP(`xp_reward`)와 토큰(`token_reward`+`bonus_token`)을 즉시 적립 + `token_transactions`에 이력 기록. "
         "캐릭터는 미션 승인 1건당 XP 임계값과 무관하게 무조건 1레벨 올라갑니다(MAX_LEVEL=4에서 정지) — "
         "행사 현장 참여자를 포함한 전체 유저 공통 규칙입니다. "
+        "오늘 완료로 연속 인증일(streak)이 3의 배수가 되면 이번 완료의 XP·토큰에 50% 보너스가 붙습니다"
+        "(`streak_bonus_applied`로 확인 가능). "
         "실패 시 `status='rejected'`, 보상 지급 없음.\n\n"
         "AI는 실패 판정을 최소화하도록 설계되어 있어(어렵게 외출한 사용자에게 '실패'는 심한 트리거가 됨) "
         "`ai_feedback`은 판정과 무관하게 항상 긍정적인 문구입니다."
@@ -191,6 +199,15 @@ async def submit_mission(
     mission = db.get(Mission, mission_id)
     if mission is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="미션을 찾을 수 없습니다")
+
+    # 실시간 촬영만 인증에 허용 — taken_at이 현재 시각과 너무 동떨어지면(과거 사진 재사용 등) 거절
+    taken_at_utc = taken_at if taken_at.tzinfo else taken_at.replace(tzinfo=timezone.utc)
+    time_diff_seconds = (datetime.now(timezone.utc) - taken_at_utc).total_seconds()
+    if time_diff_seconds > MAX_TAKEN_AT_PAST_SECONDS or time_diff_seconds < -MAX_TAKEN_AT_FUTURE_SECONDS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="촬영 시각이 현재와 너무 차이 나요. 방금 찍은 사진으로 다시 시도해주세요.",
+        )
 
     completion = MissionCompletion(
         user_id=current_user.user_id,
@@ -222,13 +239,32 @@ async def submit_mission(
     leveled_up = False
     character_image = None
     next_level_xp = None
-    total_token_reward = mission.token_reward + mission.bonus_token
+    streak_bonus_applied = False
 
     if ai_verdict:
         completion.status = "approved"
-        completion.xp_earned = mission.xp_reward
-        completion.token_earned = total_token_reward
         completion.completed_at = datetime.now(timezone.utc)
+
+        # 연속 3일째 완료(오늘 포함)면 오늘 마지막 미션 보상에 50% 보너스 적용
+        today = completion.completed_at.date()
+        prior_dates = {
+            c.completed_at.date()
+            for c in db.query(MissionCompletion).filter(
+                MissionCompletion.user_id == current_user.user_id,
+                MissionCompletion.status == "approved",
+            )
+            if c.completed_at
+        }
+        streak = calculate_streak(prior_dates | {today}, today)
+        streak_bonus_applied = streak > 0 and streak % 3 == 0
+
+        xp_reward = round(mission.xp_reward * 1.5) if streak_bonus_applied else mission.xp_reward
+        total_token_reward = mission.token_reward + mission.bonus_token
+        if streak_bonus_applied:
+            total_token_reward = round(total_token_reward * 1.5)
+
+        completion.xp_earned = xp_reward
+        completion.token_earned = total_token_reward
 
         wallet = db.get(TokenWallet, current_user.user_id)
         wallet.token_balance += total_token_reward
@@ -243,7 +279,7 @@ async def submit_mission(
         level_result = check_level_up(
             current_user.character_level,
             current_user.character_xp,
-            mission.xp_reward,
+            xp_reward,
         )
         current_user.character_level = level_result["new_level"]
         current_user.character_xp = level_result["new_xp"]
@@ -265,6 +301,7 @@ async def submit_mission(
             "xp_earned": completion.xp_earned,
             "token_earned": completion.token_earned,
             "bonus_token": mission.bonus_token if ai_verdict else 0,
+            "streak_bonus_applied": streak_bonus_applied,
             "character_level_before": character_level_before,
             "character_level_after": character_level_after,
             "character_xp": current_user.character_xp,

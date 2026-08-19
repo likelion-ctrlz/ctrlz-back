@@ -88,8 +88,11 @@ AWS_SECRET_ACCESS_KEY=
 AWS_BUCKET_NAME=
 AWS_REGION=ap-northeast-2
 
-# AI 서버
-AI_SERVER_URL=
+# AI (OpenAI) — 미설정 시 ai/ai_service.py가 자동으로 더미 응답 모드로 폴백
+OPENAI_API_KEY=
+OPENAI_VISION_MODEL=gpt-4o-mini   # 선택, 기본값 gpt-4o-mini — 미션 사진 인증
+OPENAI_TEXT_MODEL=gpt-4o-mini     # 선택, 기본값 gpt-4o-mini — 일기 감정분석/요약
+OPENAI_STT_MODEL=whisper-1        # 선택, 기본값 whisper-1 — 음성 일기 STT
 
 # 데모 모드 닉네임 목록 (쉼표 구분)
 DEMO_NICKNAMES=심사위원1,심사위원2,멋사,테스트
@@ -233,26 +236,35 @@ CHARACTER_STAGES = {
 ### 사진 인증 흐름
 
 ```
-프론트 → POST /missions/{id}/submit (multipart: photo + gps + taken_at)
+프론트 → POST /missions/{id}/submit (multipart: photo + taken_at)
   → S3 업로드
-  → AI 사진 판별 (ai/ai_service.py)  # TODO: 연동 전까지 Mock(verdict=True)
+  → AI 사진 판별 verify_photo() (ai/ai_service.py) → {passed, confidence, comment, reason}
   → 인증 성공 시: XP + 토큰 지급, 캐릭터 레벨업 체크
   → 응답: xp_earned, token_earned, leveled_up, character_level, next_level_xp
 ```
 
-## 대화형 일기장
+- `OPENAI_API_KEY` 미설정 시 자동으로 `passed=True` 더미 응답 (크래시 없이 항상 통과)
+- 실패 판정은 최소화하도록 설계됨 (애매하면 통과) — `comment`는 판정과 무관하게 항상 긍정 문구라 그대로 노출 가능
+- `reason`은 `passed=False`일 때만 값이 있음: `unclear`(판독 어려움) | `not_related`(미션과 무관) | `invalid`(스크린샷 등)
 
-챗봇과 일기장을 통합한 "말하는 일기장". 날짜별로 하나의 대화 세션이 생성됨.
+## 말하는 일기장
+
+챗봇형 대화가 아니라 **"일기 한 건 등록 → AI 감정분석"** 방식으로 구현됨 (`routers/diary.py`).
 
 ```
-프론트 → POST /diary/message {date, content, audio_url?}
-  → AI가 공감 응답 + 다음 질문 생성 (ai/ai_service.py)
-  → DiaryMessage에 유저·AI 메시지 pair 저장
-  → 응답: ai_reply, emotion_hint, risk_flag
+프론트 → POST /diary/entries (multipart: audio 또는 text_content 중 하나)
+  → (audio) S3 업로드 → transcribe_diary() 로 STT + 감정분석
+  → (text_content) analyze_text_diary() 로 감정분석만 수행
+  → DiaryEntry에 transcript, emotion_summary, risk_flag 저장
+  → 응답: entry_id, transcript, emotion_summary, risk_flag
+
+프론트 → GET /diary/summary?days=7
+  → summarize_diary() 로 최근 N일 감정 추이 + 반복 패턴 + AI 요약 생성
+  → 응답: emotion_trend, most_frequent_emotion, emotion_percentages, ai_summary
 ```
 
-- 하루 첫 메시지: AI가 "오늘 하루 어땠어요?" 류의 시작 질문으로 응대
-- 위기 신호(`risk_flag=True`) 감지 시: 응답에 `crisis_resources` 포함 (109 등)
+- 감정 라벨은 `편안함`/`설렘`/`불안`/`무기력` 4종으로 고정 (그 외 값이 오면 AI 쪽에서 자동으로 무시하고 기본값 처리 — 프론트 차트가 이 4개에만 색상 매핑)
+- 위기 신호(`risk_level=2` → `risk_flag=True`) 감지 시 저장은 되지만, 현재 별도 위기대응 알림(`crisis_resources` 등)은 아직 구현 안 됨
 - 의료·진단 언급 금지: AI 프롬프트에 명시
 
 ## 지역 기관 & 취미활동
@@ -264,28 +276,33 @@ MVP 범위에서는 **하드코딩 목데이터** 사용.
 - 오픈 API는 이후 연동 검토 (현재 서울 평생학습포털은 대상 부적합으로 보류)
 - 취미활동 신청: 앱 내 토큰으로 결제하는 로직 (실제 외부 결제 없음)
 
-## AI 연동 (인터페이스)
+## AI 연동 (인터페이스 — 구현 완료)
+
+OpenAI(GPT-4o-mini / Whisper) 기반으로 구현 완료. `OPENAI_API_KEY` 미설정 시
+모든 함수가 자동으로 더미 응답으로 폴백하므로 백엔드/프론트는 AI 상태와 무관하게 항상 정상 응답을 받음.
+전부 동기 함수(비동기 아님)이며, 미션 추천·감정패턴 분석은 재현성을 위해 의도적으로 LLM 미사용.
 
 ```python
 # ai/ai_service.py
 
-async def verify_mission_photo(photo_url: str, mission_title: str, conditions: list[str]) -> dict:
-    """
-    Returns: {"verdict": bool, "feedback": str}
-    TODO: 실제 멀티모달 모델 연동 전까지 Mock(verdict=True) 사용
-    """
+def verify_photo(image_bytes: bytes, mission_title: str,
+                  conditions: list[str] | None = None) -> dict:
+    """Returns: {"passed": bool, "confidence": float, "comment": str, "reason": str|None}"""
 
-async def get_diary_response(
-    user_message: str,
-    conversation_history: list[dict],  # [{"role": "user"|"ai", "content": str}]
-    user_type: str,
-    assessment_level: int,
-) -> dict:
-    """
-    Returns: {"ai_reply": str, "emotion_hint": str, "risk_flag": bool}
-    TODO: Claude API 연동
-    """
+def analyze_text_diary(text: str) -> dict:
+    """Returns: {"text": str, "emotion": str, "risk_level": int}  # emotion: 편안함|설렘|불안|무기력"""
+
+def transcribe_diary(audio_bytes: bytes, filename: str = "diary.m4a") -> dict:
+    """STT + 감정분석. Returns: {"text": str, "emotion": str, "risk_level": int}"""
+
+def summarize_diary(entries: list) -> dict:
+    """Returns: {"summary": str, "trend": [{"date", "emotion"}, ...], "pattern": dict|None}"""
+
+def get_missions(level: int, user_type: str | None = None, count: int = 3) -> list[dict]:
+    """LLM 미사용 — 레벨별 하드코딩 미션 풀에서 반환 (재현성 우선 설계)"""
 ```
+
+> 새 AI 기능 필요 시 이 인터페이스를 먼저 갱신하고 AI 파트에 공유
 
 > 새 AI 기능 필요 시 `ai/ai_service.py`에 함수 시그니처 먼저 추가하고 AI 파트에 공유
 

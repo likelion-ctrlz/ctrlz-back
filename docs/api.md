@@ -164,6 +164,7 @@
 ### POST /missions/{id}/submit
 미션 인증 사진 업로드 → AI(GPT-4o-mini Vision) 판별 → 통과 시 XP·토큰 즉시 지급 + 캐릭터 레벨업 체크.
 미션 승인 1건당 XP 임계값과 무관하게 캐릭터가 무조건 1레벨 오릅니다(MAX_LEVEL=4에서 정지, 전체 유저 공통).
+오늘 완료로 연속 인증일(streak, 오늘 포함)이 3의 배수가 되면 이번 완료의 XP·토큰에 50% 보너스가 붙습니다.
 
 **Request**: `multipart/form-data`
 - `photo`: 이미지 파일
@@ -175,13 +176,14 @@
   "status": "success",
   "data": {
     "completion_id": "...", "ai_verdict": true, "ai_feedback": "잘 하셨어요!",
-    "xp_earned": 20, "token_earned": 25, "bonus_token": 5,
+    "xp_earned": 20, "token_earned": 25, "bonus_token": 5, "streak_bonus_applied": false,
     "character_level_before": 1, "character_level_after": 2, "character_xp": 20,
     "leveled_up": true, "character_image": "baby_morro", "next_level_xp": 10,
     "token_balance": 160
   }
 }
 ```
+`bonus_token`은 미션별로 고정된 와우포인트 보너스(연속일과 무관), `streak_bonus_applied`는 이번 완료가 연속 3일째(의 배수)라 XP·토큰에 50%가 곱해졌는지 여부입니다. 두 보너스는 독립적으로 함께 적용될 수 있습니다.
 실패(`ai_verdict=false`) 시 `status="rejected"`로 저장되고 보상 관련 필드는 대부분 `null`/0입니다.
 
 ### GET /missions/{id}/result
@@ -304,13 +306,15 @@
   "status": "success",
   "data": {
     "period": "최근 7일",
-    "emotion_trend": [{"date": "2026-08-11", "primary": "평온"}, {"date": "2026-08-12", "primary": "무기력"}],
+    "emotion_trend": [{"date": "2026-08-11", "primary": "편안함"}, {"date": "2026-08-12", "primary": "무기력"}],
     "most_frequent_emotion": "무기력",
-    "emotion_percentages": {"평온": 57, "무기력": 43},
-    "ai_summary": "이번 주에는 바깥 공기를 쐰 날이 늘었어요. 작지만 분명한 변화예요."
+    "emotion_percentages": {"편안함": 57, "무기력": 43},
+    "ai_summary": "이번 주에는 바깥 공기를 쐰 날이 늘었어요. 작지만 분명한 변화예요.",
+    "pattern": {"emotion": "무기력", "time_slot": "저녁", "count": 3, "pattern_text": "'무기력' 감정이 주로 저녁 시간대에 많이 기록됐어요"}
   }
 }
 ```
+`pattern`은 감정 기록이 3건 미만이면 `null`.
 `most_frequent_emotion`/`emotion_percentages`는 조회 기간 내 일기가 하나도 없으면 각각 `null`/`{}`. "지난 주 대비" 같은 기간 비교 문구는 아직 없고 `ai_summary`(AI 생성)로만 변화를 짚어줍니다.
 
 ## 지역 프로그램·기관 (인증 필요)

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session as DBSession
 
-from ai.ai_service import summarize_diary, transcribe_diary
+from ai.ai_service import analyze_text_diary, summarize_diary, transcribe_diary
 from database import get_db
 from dependencies import get_current_user
 from models.diary import DiaryEntry
@@ -20,8 +20,8 @@ router = APIRouter(prefix="/diary", tags=["diary"])
         "**음성(`audio`)으로 등록 시**: S3에 업로드 후 OpenAI Whisper로 STT 변환 + GPT로 감정 분석까지 자동 처리됩니다. "
         "감정 분석 결과 `risk_level`이 2(자기위해 신호)면 `risk_flag=True`로 저장됩니다 "
         "(현재 별도 위기대응 알림 로직은 없고 플래그만 저장).\n\n"
-        "**텍스트(`text_content`)로 등록 시**: STT/감정분석 없이 입력한 텍스트를 그대로 저장합니다 "
-        "(텍스트 전용 AI 감정분석 함수는 아직 없음)."
+        "**텍스트(`text_content`)로 등록 시**: STT 없이 GPT로 감정 분석까지 자동 처리됩니다. "
+        "마찬가지로 `risk_level`이 2면 `risk_flag=True`로 저장됩니다."
     ),
 )
 async def create_diary_entry(
@@ -52,10 +52,10 @@ async def create_diary_entry(
         entry.emotion_summary = {"primary": result["emotion"], "score": {}}
         entry.risk_flag = result["risk_level"] >= 2
     else:
-        # 텍스트 직접 입력은 STT 대상이 아니라 AI 감정분석 없이 그대로 저장
-        entry.transcript = text_content
-        entry.emotion_summary = {"primary": "평온", "score": {}}
-        entry.risk_flag = False
+        result = analyze_text_diary(text_content)
+        entry.transcript = result["text"]
+        entry.emotion_summary = {"primary": result["emotion"], "score": {}}
+        entry.risk_flag = result["risk_level"] >= 2
 
     db.commit()
 
@@ -107,7 +107,8 @@ def list_diary_entries(
     summary="최근 N일 감정 추이 요약",
     description=(
         "최근 `days`일간의 일기를 모아 감정 추이(`emotion_trend`), 감정별 비율(`emotion_percentages`), "
-        "가장 자주 기록된 감정(`most_frequent_emotion`), AI가 생성한 한두 문장짜리 요약(`ai_summary`)을 반환합니다. "
+        "가장 자주 기록된 감정(`most_frequent_emotion`), AI가 생성한 한두 문장짜리 요약(`ai_summary`), "
+        "반복되는 감정 패턴(`pattern`)을 반환합니다. "
         "AI 요약은 진단·조언 없이 변화만 짚어주는 톤으로 생성됩니다 (병명·상태 규정 표현 금지)."
     ),
 )
@@ -127,7 +128,7 @@ def get_diary_summary(
     ai_input = [
         {
             "content": e.transcript or "",
-            "emotion": (e.emotion_summary or {}).get("primary", "행복"),
+            "emotion": (e.emotion_summary or {}).get("primary", "편안함"),
             "created_at": e.created_at.isoformat() if e.created_at else "",
         }
         for e in reversed(entries)
@@ -144,5 +145,6 @@ def get_diary_summary(
             "most_frequent_emotion": stats["most_frequent_emotion"],
             "emotion_percentages": stats["emotion_percentages"],
             "ai_summary": result["summary"],
+            "pattern": result["pattern"],
         },
     }

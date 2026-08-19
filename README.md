@@ -6,7 +6,8 @@ FastAPI 기반 메인 서버. 인증, DB, 비즈니스 로직 + AI 로직까지 
 
 - FastAPI
 - SQLAlchemy + PostgreSQL (Supabase)
-- JWT (카카오 / 구글 소셜 로그인)
+- 세션 인증 (닉네임 입력 → Bearer 토큰, 소셜 로그인 없음)
+- OpenAI (GPT-4o-mini / Whisper) — 미션 사진 인증, 일기 감정분석
 - 배포: Railway
 
 ## 시작하기
@@ -32,11 +33,11 @@ Windows에서는 venv 생성·설치 후 `start.bat`을 실행하면 venv 활성
 .
 ├── main.py           # FastAPI 앱 진입점
 ├── database.py        # DB 연결 (Supabase PostgreSQL)
-├── security.py        # JWT 발급/검증
-├── dependencies.py    # 인증 의존성 (get_current_user)
+├── security.py        # 세션 토큰 생성/만료 유틸
+├── dependencies.py    # 인증 의존성 (get_current_user, Bearer 토큰)
 ├── start.bat           # Windows용 venv 활성화 + 서버 실행 스크립트
 ├── routers/           # API 엔드포인트
-│   ├── auth.py         # POST /auth/kakao, POST /auth/google
+│   ├── session.py       # POST /session (닉네임 → 세션 토큰)
 │   ├── missions.py      # GET /missions/recommended, POST /missions/{id}/submit
 │   ├── diary.py         # POST /diary/entries, GET /diary/summary
 │   └── tokens.py        # GET /tokens/balance
@@ -44,9 +45,9 @@ Windows에서는 venv 생성·설치 후 `start.bat`을 실행하면 venv 활성
 │   ├── user.py
 │   ├── mission.py
 │   └── diary.py
-├── ai/                 # AI 파트 구현 영역 (직접 import 방식)
+├── ai/                 # AI 파트 구현 영역 (직접 import 방식, 구현 완료)
 │   ├── __init__.py
-│   └── ai_service.py    # get_mission, summarize_diary — 백엔드 ↔ AI 인터페이스
+│   └── ai_service.py    # verify_photo, analyze_text_diary, transcribe_diary, summarize_diary — 백엔드 ↔ AI 인터페이스
 └── docs/
     └── api.md          # API 명세
 ```
@@ -54,6 +55,9 @@ Windows에서는 venv 생성·설치 후 `start.bat`을 실행하면 venv 활성
 ## 환경변수
 
 `.env.example` 참고. `.env` 파일은 절대 커밋하지 않습니다.
+
+AI 기능(미션 사진 인증, 일기 감정분석)은 `OPENAI_API_KEY`가 필요합니다.
+미설정 시 자동으로 더미 응답 모드로 폴백되므로 없어도 서버는 정상 동작합니다.
 
 ## 브랜치 · 커밋 규칙
 
