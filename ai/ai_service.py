@@ -366,15 +366,16 @@ def summarize_diary(entries: list) -> dict:
         {"content": e, "emotion": "편안함", "created_at": ""} if isinstance(e, str) else e
         for e in entries
     ]
-    recent = normalized[-7:]
+    # trend/pattern은 호출부(router)가 이미 days 기준으로 필터링해서 넘겨준 entries 전체를 그대로 사용.
+    # (예전엔 trend도 마지막 7건으로만 잘라서, 1개월·3개월을 선택해도 1주일과 화면이 똑같아 보이는 버그가 있었음)
     trend = [
         {"date": (e.get("created_at") or "")[:10], "emotion": e.get("emotion", "편안함")}
-        for e in recent
+        for e in normalized
     ]
     pattern = analyze_emotion_pattern(normalized)  # 최근 7일 제한 없이 전체 기록 기준
     fallback = "이번 주에는 바깥 공기를 쐰 날이 늘었어요. 작지만 분명한 변화예요."
 
-    if not recent:
+    if not normalized:
         # 기록 자체가 없으면 지어낼 내용이 없으므로 빈 요약 반환 (AI 미설정 폴백과는 다른 케이스)
         return {"summary": "", "trend": trend, "pattern": pattern}
 
@@ -383,7 +384,9 @@ def summarize_diary(entries: list) -> dict:
         return {"summary": fallback, "trend": trend, "pattern": pattern}
 
     try:
-        joined = "\n".join(f"- {e.get('content', '')}" for e in recent)
+        # AI 프롬프트 입력은 토큰 비용 때문에 최근 7건으로만 제한 (trend/pattern은 위에서 이미 전체 기준으로 계산됨)
+        recent_for_prompt = normalized[-7:]
+        joined = "\n".join(f"- {e.get('content', '')}" for e in recent_for_prompt)
         prompt = _load_prompt("summary").replace("{entries}", joined)
         res = client.chat.completions.create(
             model=TEXT_MODEL,
