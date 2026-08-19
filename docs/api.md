@@ -129,7 +129,7 @@
 난이도 스케일은 1(쉬움)~7(어려움). 자가진단 레벨별 추천 범위: 레벨1→1~3 / 레벨2→3~5 / 레벨3→4~6 / 레벨4→5~7 (인접 레벨끼리 겹침).
 
 ### GET /missions/recommended
-자가진단 레벨에 맞는 난이도 범위의 미션 목록 조회 (`?limit=5`). 오늘 이미 승인된 미션은 제외. 데모 유저는 `is_wow=true` 미션이 앞쪽에 옴.
+자가진단 레벨에 맞는 난이도 범위의 미션 목록 조회 (`?limit=5`). 오늘 이미 승인된 미션은 제외. 데모 유저는 자가진단 레벨/난이도와 무관하게 `is_wow=true` 미션만 노출.
 
 **Response**
 ```json
@@ -156,7 +156,7 @@
     "mission_id": "...", "title": "...", "description": "...", "detail_description": "...",
     "difficulty": 3, "difficulty_label": "중하", "category": "외출", "verification_type": "photo",
     "conditions": ["야외에서 촬영한 사진이어야 해요", "..."],
-    "xp_reward": 20, "token_reward": 20, "bonus_token": 0
+    "xp_reward": 20, "token_reward": 20, "bonus_token": 0, "is_wow": false
   }
 }
 ```

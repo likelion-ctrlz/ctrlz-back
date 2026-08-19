@@ -31,21 +31,23 @@ def _today_recommended_mission(db: DBSession, user: User) -> dict | None:
         if c.completed_at and c.completed_at.date() == today
     }
 
-    lo, hi = difficulty_range_for_level(user.assessment_level)
-    query = db.query(Mission).filter(
-        Mission.is_active.is_(True),
-        Mission.difficulty >= lo,
-        Mission.difficulty <= hi,
-    )
+    if user.is_demo:
+        # 데모 닉네임은 자가진단 레벨/난이도와 무관하게 와우포인트 미션만 후보로 삼음
+        query = db.query(Mission).filter(
+            Mission.is_active.is_(True),
+            Mission.is_wow.is_(True),
+        )
+    else:
+        lo, hi = difficulty_range_for_level(user.assessment_level)
+        query = db.query(Mission).filter(
+            Mission.is_active.is_(True),
+            Mission.difficulty >= lo,
+            Mission.difficulty <= hi,
+        )
 
     candidates = [m for m in query.all() if str(m.mission_id) not in done_today]
     if not candidates:
         return None
-
-    if user.is_demo:
-        wow_candidates = [m for m in candidates if m.is_wow]
-        if wow_candidates:
-            candidates = wow_candidates
 
     seed = f"{user.user_id}:today:{today.isoformat()}"
     idx = int(hashlib.md5(seed.encode()).hexdigest(), 16) % len(candidates)

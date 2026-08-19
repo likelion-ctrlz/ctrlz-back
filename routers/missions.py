@@ -71,7 +71,7 @@ def _serialize_mission(mission: Mission) -> dict:
         "레벨1 → 1~3 / 레벨2 → 3~5 / 레벨3 → 4~6 / 레벨4 → 5~7. "
         "자가진단 미완료 유저는 전체 난이도(1~7)를 노출합니다.\n\n"
         "오늘 이미 승인(approved)된 미션은 후보에서 제외합니다. "
-        "데모 모드 유저는 `is_wow=True` 미션을 목록 앞쪽에 우선 배치합니다.\n\n"
+        "데모 모드 유저는 자가진단 레벨/난이도와 무관하게 `is_wow=True` 미션만 노출합니다.\n\n"
         "후보를 `user_id` 해시로 결정론적으로 정렬해 유저마다 다른 순서로 보이게 하되, "
         "같은 유저는 새로고침해도 항상 같은 순서·결과를 봅니다.\n\n"
         "AI 기반 추천이 아니라 DB 필터링을 사용합니다 (재현성·난이도 곡선 안정성을 위해 의도된 설계)."
@@ -84,20 +84,21 @@ def get_recommended_missions(
 ):
     done_today = _completed_today_mission_ids(db, current_user.user_id)
 
-    lo, hi = difficulty_range_for_level(current_user.assessment_level)
-    query = db.query(Mission).filter(
-        Mission.is_active.is_(True),
-        Mission.difficulty >= lo,
-        Mission.difficulty <= hi,
-    )
-    candidates = [m for m in query.all() if str(m.mission_id) not in done_today]
-
     if current_user.is_demo:
-        wow = _deterministic_order([m for m in candidates if m.is_wow], current_user.user_id)
-        rest = _deterministic_order([m for m in candidates if not m.is_wow], current_user.user_id)
-        ordered = wow + rest
+        # 데모 닉네임은 자가진단 레벨/난이도와 무관하게 와우포인트 미션만 보여줌
+        query = db.query(Mission).filter(
+            Mission.is_active.is_(True),
+            Mission.is_wow.is_(True),
+        )
     else:
-        ordered = _deterministic_order(candidates, current_user.user_id)
+        lo, hi = difficulty_range_for_level(current_user.assessment_level)
+        query = db.query(Mission).filter(
+            Mission.is_active.is_(True),
+            Mission.difficulty >= lo,
+            Mission.difficulty <= hi,
+        )
+    candidates = [m for m in query.all() if str(m.mission_id) not in done_today]
+    ordered = _deterministic_order(candidates, current_user.user_id)
 
     data = [_serialize_mission(m) for m in ordered[:limit]]
     return {"status": "success", "data": data}
@@ -166,6 +167,7 @@ def get_mission_detail(
             "xp_reward": mission.xp_reward,
             "token_reward": mission.token_reward,
             "bonus_token": mission.bonus_token,
+            "is_wow": mission.is_wow,
         },
     }
 
