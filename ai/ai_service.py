@@ -373,7 +373,7 @@ def summarize_diary(entries: list) -> dict:
         res = client.chat.completions.create(
             model=TEXT_MODEL,
             temperature=0,
-            max_tokens=300,
+            max_tokens=500,  # 4~6문장 분량이라 300으로는 중간에 잘릴 수 있음
             messages=[{"role": "user", "content": prompt}],
         )
         summary = res.choices[0].message.content.strip() or fallback
