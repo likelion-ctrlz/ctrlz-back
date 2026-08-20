@@ -449,15 +449,7 @@ def fetch_hobby_courses(num_of_rows: int = 10) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 _FALLBACK_PROGRAMS = [
-    {
-        "title": "강동구 평생학습 강좌 둘러보기",
-        "agency_name": "강동구평생학습관",
-        "region": "서울 강동구",
-        "description": "강동구평생학습관에서 지금 열려있는 다양한 강좌를 둘러보고 신청할 수 있어요. 관심 가는 주제 하나만 골라봐도 좋아요.",
-        "image_url": "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=600",
-        "contact": "02-XXX-XXXX",
-        "apply_url": "https://lll.gangdong.go.kr/main/Main.do",
-    },
+    # 아래 4개는 개별 강좌 상세/신청 페이지까지 직접 확인된 것들 — 신뢰도가 가장 높아 먼저 노출
     {
         "title": "드로잉 클래스",
         "agency_name": "마포구 평생학습포털(공예작업실)",
@@ -486,15 +478,6 @@ _FALLBACK_PROGRAMS = [
         "apply_url": "https://www.nowonsc.kr/fmcs/188?center=NOWON02&action=read&page=1&comcd=NOWON02&classcd=00097&type=R",
     },
     {
-        "title": "성동문화재단 강좌 둘러보기",
-        "agency_name": "성동문화재단",
-        "region": "서울 성동구",
-        "description": "성동문화재단에서 지금 열려있는 강좌를 둘러보고 신청할 수 있어요. 글쓰기, 캘리그라피 등 다양한 주제가 있어요.",
-        "image_url": "https://images.unsplash.com/photo-1517842645767-c639042777db?w=600",
-        "contact": "02-XXX-XXXX",
-        "apply_url": "https://edu.sdfac.or.kr/www/selectUserLectureList.do?key=708&aCode=SDDLIB",
-    },
-    {
         "title": "캘리그라피 클래스",
         "agency_name": "오금동 자치회관(송파런)",
         "region": "서울 송파구",
@@ -503,8 +486,19 @@ _FALLBACK_PROGRAMS = [
         "contact": "02-XXX-XXXX",
         "apply_url": "https://www.songpa.go.kr/learn/youth/program/lecture_view.do?lecture_idx=16873",
     },
+    # 아래는 특정 강좌 대신 기관의 강좌 목록 페이지로 연결 — 실제 강좌 목록이 렌더링되는 걸
+    # 확인한 순서대로 배치 (뒤로 갈수록 목록 확인이 불확실하거나 사이트 메인 수준)
     {
-        "title": "서대문구 평생학습 강좌 둘러보기",
+        "title": "글쓰기·캘리그라피 강좌",
+        "agency_name": "성동문화재단",
+        "region": "서울 성동구",
+        "description": "성동문화재단에서 지금 열려있는 강좌를 둘러보고 신청할 수 있어요. 글쓰기, 캘리그라피 등 다양한 주제가 있어요.",
+        "image_url": "https://images.unsplash.com/photo-1517842645767-c639042777db?w=600",
+        "contact": "02-XXX-XXXX",
+        "apply_url": "https://edu.sdfac.or.kr/www/selectUserLectureList.do?key=708&aCode=SDDLIB",
+    },
+    {
+        "title": "평생학습 강좌",
         "agency_name": "서대문구 평생학습포털",
         "region": "서울 서대문구",
         "description": "서대문구 평생학습포털에서 지금 접수 중인 강좌를 둘러보고 신청할 수 있어요. 글쓰기, 명상 등 다양한 주제가 있어요.",
@@ -513,7 +507,7 @@ _FALLBACK_PROGRAMS = [
         "apply_url": "https://www.sdm.go.kr/lll/user/lectureinfo/lectureInfoList.do",
     },
     {
-        "title": "서울청년센터 광진 프로그램 둘러보기",
+        "title": "청년센터 프로그램",
         "agency_name": "서울청년센터 광진",
         "region": "서울 광진구",
         "description": "서울청년센터 광진에서 진행하는 다양한 프로그램을 둘러보고 신청할 수 있어요. 사진, 문화 활동 등 여러 주제가 있어요.",
@@ -522,7 +516,16 @@ _FALLBACK_PROGRAMS = [
         "apply_url": "https://youth.seoul.go.kr/orang/infoData/sprtInfo/list.do?key=2309210005",
     },
     {
-        "title": "강서구 생활체육 프로그램 둘러보기",
+        "title": "청년청 프로그램",
+        "agency_name": "관악청년청",
+        "region": "서울 관악구",
+        "description": "관악청년청에서 진행하는 다양한 프로그램을 둘러보고 신청할 수 있어요. 마음 돌봄부터 자기계발까지 다양해요.",
+        "image_url": "https://images.unsplash.com/photo-1610890716171-6b1bb98ffd09?w=600",
+        "contact": "02-XXX-XXXX",
+        "apply_url": "https://www.checkin-gwanak.or.kr/core/?cid=29",
+    },
+    {
+        "title": "생활체육 프로그램",
         "agency_name": "강서구공공체육시설",
         "region": "서울 강서구",
         "description": "강서구 생활체육시설에서 지금 열려있는 운동 프로그램을 둘러보고 신청할 수 있어요. 무리 없는 종목부터 골라봐도 좋아요.",
@@ -531,7 +534,7 @@ _FALLBACK_PROGRAMS = [
         "apply_url": "https://sports.gangseo.seoul.kr/fmcs/102",
     },
     {
-        "title": "동작구 문화·체육 프로그램 둘러보기",
+        "title": "문화·체육 프로그램",
         "agency_name": "동작구시설관리공단",
         "region": "서울 동작구",
         "description": "동작구시설관리공단에서 진행하는 다양한 문화·체육 프로그램을 둘러보고 신청할 수 있어요.",
@@ -540,7 +543,7 @@ _FALLBACK_PROGRAMS = [
         "apply_url": "https://sports.idongjak.or.kr/home/171",
     },
     {
-        "title": "구로문화예술아카데미 강좌 둘러보기",
+        "title": "문화예술 강좌",
         "agency_name": "구로문화재단",
         "region": "서울 구로구",
         "description": "구로문화재단에서 지금 열려있는 문화예술 강좌를 둘러보고 신청할 수 있어요.",
@@ -549,13 +552,13 @@ _FALLBACK_PROGRAMS = [
         "apply_url": "https://www.guroartsvalley.or.kr/",
     },
     {
-        "title": "관악청년청 프로그램 둘러보기",
-        "agency_name": "관악청년청",
-        "region": "서울 관악구",
-        "description": "관악청년청에서 진행하는 다양한 프로그램을 둘러보고 신청할 수 있어요. 마음 돌봄부터 자기계발까지 다양해요.",
-        "image_url": "https://images.unsplash.com/photo-1610890716171-6b1bb98ffd09?w=600",
+        "title": "평생학습 강좌",
+        "agency_name": "강동구평생학습관",
+        "region": "서울 강동구",
+        "description": "강동구평생학습관에서 지금 열려있는 다양한 강좌를 둘러보고 신청할 수 있어요. 관심 가는 주제 하나만 골라봐도 좋아요.",
+        "image_url": "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=600",
         "contact": "02-XXX-XXXX",
-        "apply_url": "https://www.checkin-gwanak.or.kr/core/?cid=29",
+        "apply_url": "https://lll.gangdong.go.kr/main/Main.do",
     },
 ]
 

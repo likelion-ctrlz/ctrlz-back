@@ -6,9 +6,13 @@ from database import get_db
 from dependencies import get_current_user
 from models.program import Program, ProgramReferral
 from models.user import User
-from services.everlearning import fetch_programs
+from services.everlearning import _FALLBACK_PROGRAMS, fetch_programs
 
 router = APIRouter(prefix="/programs", tags=["programs"])
+
+# _FALLBACK_PROGRAMS 리스트 순서 = 강좌 목록이 실제로 잘 뜨는지 확인된 신뢰도 순서.
+# DB row 순서는 들쭉날쭉해서 이 순서대로 재정렬해서 내려줌
+_REGION_ORDER = {p["region"]: i for i, p in enumerate(_FALLBACK_PROGRAMS)}
 
 
 class ProgramApplyRequest(BaseModel):
@@ -49,6 +53,8 @@ def get_programs(
         ]
         db.add_all(programs)
         db.commit()
+
+    programs.sort(key=lambda p: _REGION_ORDER.get(p.region, len(_REGION_ORDER)))
 
     data = [
         {
